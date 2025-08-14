@@ -123,7 +123,10 @@ async def landing(request: Request):
     if not is_authenticated(request):
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("landing.html", {"request": request})
-
+@app.get('/favicon.ico', include_in_schema=False)
+@app.get('/favicon.png', include_in_schema=False) 
+async def favicon():
+    return Response(status_code=204)  # No Content
 @app.get("/app", response_class=HTMLResponse)
 async def app_view(request: Request):
     touch_session(request)
