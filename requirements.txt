@@ -2,9 +2,10 @@ fastapi==0.104.1
 uvicorn==0.24.0
 python-multipart==0.0.6
 jinja2==3.1.2
-google-api-python-client
-google-auth
-google-auth-oauthlib
-google-auth-httplib2
-pillow
-python-dotenv
+pillow==10.1.0
+python-dotenv==1.0.0
+google-api-python-client==2.108.0
+google-auth==2.23.4
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+itsdangerous==2.1.2
