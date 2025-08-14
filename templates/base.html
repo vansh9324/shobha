@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>{% block title %}Shobha Platemaker{% endblock %}</title>
+
+  <!-- System font stack for performance; you can swap to premium webfonts later -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Optional: add a premium serif later for headlines -->
+
+  <link rel="stylesheet" href="/static/css/reset.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script defer src="/static/js/observe.js"></script>
+
+  <meta name="color-scheme" content="light only" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="description" content="Luxury-minimal plate maker dashboard." />
+  <link rel="icon" type="image/png" href="/static/brand/favicon.png" />
+</head>
+<body>
+  <header class="site-header fade-in">
+    <div class="container header-inner">
+      <div class="brand">
+        <img src="/static/brand/mark.svg" alt="Brand" width="28" height="28" />
+        <span class="brand-word">Shobha</span>
+      </div>
+      <nav class="site-nav">
+        <a class="nav-link" href="/">Dashboard</a>
+        <a class="nav-link" href="#" aria-disabled="true">Library</a>
+        <a class="nav-link" href="#" aria-disabled="true">Settings</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer reveal-up" data-stagger>
+    <div class="container footer-inner">
+      <p>© {{ 2025 }} Shobha Sarees</p>
+      <p class="muted">Crafted with care in Surat, Gujarat</p>
+    </div>
+  </footer>
+</body>
+</html>

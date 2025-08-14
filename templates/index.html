@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>Photo Maker — Shobha Sarees</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="/static/styles.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="theme">
+
+{% include '_navbar.html' %}
+
+<div class="app-container-glassmorphic">
+  <div class="app-logo-bg" id="appLogoBg"></div>
+  
+  <main class="photo-maker-overlay glass">
+    <header class="app-header-glass">
+      <div class="header-content">
+        <h1 class="app-title gradient-text">Create Plates</h1>
+        <p class="app-subtitle">Upload images, assign design numbers, and process.</p>
+      </div>
+      <div class="header-glow"></div>
+    </header>
+
+    <section class="photo-maker-panel glass">
+      <form id="uploadForm" class="photo-maker-form">
+        <div class="form-row-glass">
+          <div class="field-glass">
+            <label class="label-glass">Catalog</label>
+            <div class="select-wrap-premium glass">
+              <select name="catalog" class="select-glass" required>
+                <option value="">Choose collection...</option>
+                {% for c in catalogs %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+              </select>
+              <svg class="select-arrow-glass" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"></path></svg>
+            </div>
+          </div>
+
+          <div class="field-glass">
+            <label class="label-glass">Add Images</label>
+            <div id="dropzone" class="dropzone-glass glass">
+              <input type="file" id="fileInput" name="files" accept="image/*" multiple capture="environment">
+              <div class="dropzone-content">
+                <svg viewBox="0 0 24 24" class="dz-icon-glass">
+                  <path d="M14,2H6A2,2 0,0,0,4,4V20a2,2 0,0,0,2,2H18a2,2 0,0,0,2-2V8Z"/>
+                </svg>
+                <div class="upload-title">Drag & drop or tap to upload</div>
+                <div class="upload-subtitle">Images are optimized ≤10MB for fast upload</div>
+              </div>
+              <div class="dropzone-glow"></div>
+            </div>
+            <div class="action-buttons-glass">
+              <button type="button" id="openCameraBtn" class="btn-glass ghost">Use Camera</button>
+              <button type="button" id="clearAllBtn" class="btn-glass ghost">Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="previewViewport" class="viewport-glass glass">
+          <div id="previewSpacer" class="spacer"></div>
+          <div id="previewGrid" class="vgrid" aria-live="polite"></div>
+        </div>
+
+        <div class="actions-glass">
+          <button id="processBtn" class="btn-glass primary glassmorphic-btn" type="submit">
+            <span class="btn-content">
+              <span class="btn-txt">Process Images</span>
+              <span class="btn-icon">🔄</span>
+            </span>
+            <div class="btn-glow"></div>
+          </button>
+          
+          <!-- Premium Progress Bar -->
+          <div class="progress-container glass" id="progressContainer" style="display: none;">
+            <div class="progress-header">
+              <span class="progress-title">Processing Images</span>
+              <span class="progress-percentage" id="progressPercentage">0%</span>
+            </div>
+            <div class="progress-bar-premium">
+              <div class="progress-fill-premium" id="progressFill"></div>
+              <div class="progress-glow"></div>
+            </div>
+            <div class="progress-status" id="progressStatus">Preparing files...</div>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <section class="results-panel-glass glass" id="resultsPanel" style="display:none;">
+      <h2 class="panel-title-glass">Results</h2>
+      <div id="resultsGrid" class="results-grid-glass"></div>
+    </section>
+  </main>
+</div>
+
+{% include '_sidebar_menu.html' %}
+
+<!-- Modals -->
+<div id="cameraModal" class="modal">
+  <div class="modal-card glass">
+    <div class="progress-head">Camera</div>
+    <div class="camera-wrap">
+      <video id="cameraVideo" playsinline autoplay></video>
+      <div class="camera-actions">
+        <button id="captureBtn" class="btn-glass primary glassmorphic-btn">Capture</button>
+        <button id="closeCameraBtn" class="btn-glass ghost">Close</button>
+      </div>
+    </div>
+    <canvas id="cameraCanvas" style="display:none;"></canvas>
+  </div>
+</div>
+
+<div id="toastHost" class="toast-host"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
