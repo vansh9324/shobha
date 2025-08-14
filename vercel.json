@@ -1,8 +1,18 @@
 {
-  "version": 2,
-  "functions": {
-    "main.py": {
-      "runtime": "@vercel/python@4.0.0"
+    "version": 2,
+    "builds": [
+      {
+        "src": "main.py",
+        "use": "@vercel/python"
+      }
+    ],
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "main.py"
+      }
+    ],
+    "env": {
+      "PYTHONPATH": "/var/task"
     }
-  }
-}
+  }  
