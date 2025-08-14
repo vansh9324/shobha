@@ -190,7 +190,9 @@ async def upload_images(
 async def not_found(request: Request, exc):
     return PlainTextResponse("Not Found", status_code=404)
 
-# This is important for Vercel
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+
+# Export for Vercel
+handler = app
