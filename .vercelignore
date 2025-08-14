@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+token.pickle
+*.log
+.git/
+.DS_Store
+node_modules/
