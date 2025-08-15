@@ -6,7 +6,7 @@ Fixed to use catalog name instead of filename
 
 import io
 from PIL import Image, ImageDraw, ImageFont
-import rembg
+from rembg import remove
 from pathlib import Path
 
 class PlateMaker:
