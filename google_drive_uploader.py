@@ -7,7 +7,7 @@ from typing import Optional
 
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 
 # Same scope as before
@@ -18,39 +18,58 @@ class DriveUploader:
         # Use your existing main folder ID from original code
         self.main_folder_id = "1doyiFBYxHfdbLmqu2seRZJMbPH2940_z"
 
-        # Build service using client credentials from env instead of credentials.json
+        # Build service using client credentials + refresh token from env
         self.service = self._authenticate()
 
         print(f"✅ Connected to Shobha Sarees folder: {self.main_folder_id}")
 
     def _authenticate(self):
         """
-        Authenticate using OAuth client creds from env var GOOGLE_APPLICATION_CREDENTIALS
-        which contains the same JSON you previously had in credentials.json.
-        No token.pickle is stored (serverless-safe).
+        Non-interactive auth for serverless:
+        - Reads Installed OAuth client JSON from GOOGLE_APPLICATION_CREDENTIALS (env).
+        - Reads GOOGLE_REFRESH_TOKEN (env).
+        - Builds google.oauth2.credentials.Credentials directly and refreshes if needed.
         """
-        creds_info_str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
-        if not creds_info_str:
+        client_info_str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+        if not client_info_str:
             raise RuntimeError("Missing GOOGLE_APPLICATION_CREDENTIALS env var.")
 
+        refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN", "").strip()
+        if not refresh_token:
+            raise RuntimeError("Missing GOOGLE_REFRESH_TOKEN env var. Generate it once locally with the same client and scope.")
+
         try:
-            creds_info = json.loads(creds_info_str)
+            client_info = json.loads(client_info_str)
         except Exception as e:
             raise RuntimeError(f"GOOGLE_APPLICATION_CREDENTIALS is not valid JSON: {e}")
 
-        # InstalledAppFlow expects a client_config dict in the same format as your credentials.json
-        # Your provided JSON has the "installed" key already (fits flow.from_client_config).
-        flow = InstalledAppFlow.from_client_config(creds_info, SCOPES)
+        # Extract client_id and client_secret from the 'installed' block
+        if "installed" not in client_info:
+            raise RuntimeError("GOOGLE_APPLICATION_CREDENTIALS must contain an 'installed' client (OAuth client).")
+        installed = client_info["installed"]
+        client_id = installed.get("client_id")
+        client_secret = installed.get("client_secret")
+        token_uri = installed.get("token_uri", "https://oauth2.googleapis.com/token")
 
-        # In serverless, no local browser interaction.
-        # Use console flow which prints a URL and expects a code.
-        # For true hands-off, you should run once locally, save refresh token securely, and reuse.
-        # Since you asked to keep it simple and similar, we’ll use run_console().
-        # If you deploy this as-is, you’ll need to capture the code manually on first cold start.
-        # To avoid that, replace this with pre-seeded refresh-token logic later.
-        creds = flow.run_console()
+        if not client_id or not client_secret:
+            raise RuntimeError("Missing client_id/client_secret in GOOGLE_APPLICATION_CREDENTIALS.")
 
-        return build('drive', 'v3', credentials=creds, cache_discovery=False)
+        # Build non-interactive credentials with a refresh token
+        creds = Credentials(
+            token=None,  # access token will be fetched via refresh
+            refresh_token=refresh_token,
+            token_uri=token_uri,
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=SCOPES,
+        )
+
+        # Refresh immediately to ensure we have a valid access token
+        creds.refresh(Request())
+
+        # Disable discovery cache (no disk writes)
+        service = build('drive', 'v3', credentials=creds, cache_discovery=False)
+        return service
 
     def get_or_create_folder(self, folder_name: str, parent_id: str) -> str:
         """Get existing folder or create new one in specific parent."""
