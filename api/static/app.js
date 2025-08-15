@@ -1,5 +1,8 @@
 // ========== OPTIMIZED PHOTO MAKER UI ==========
 class PhotoMakerUI {
+  // Track last rendered count to append only new cards
+  _lastRenderedCount = 0;
+
   constructor() {
     // State management
     this.items = [];
@@ -362,20 +365,19 @@ class PhotoMakerUI {
   addFiles(files) {
     const validFiles = files.filter(f => f && f.type && f.type.startsWith('image/'));
     const uniqueFiles = this.dedupeFiles(validFiles);
-    
-    if (uniqueFiles.length === 0) {
+    if (!uniqueFiles.length) {
       this.showToast('No new images added', 'info');
       return;
     }
-    
+    // Create blob URL once per file
     uniqueFiles.forEach(file => {
-      this.items.push({ 
-        file, 
-        id: this.idSeq++, 
-        design: '' 
+      this.items.push({
+        file,
+        id: this.idSeq++,
+        design: '',
+        url: URL.createObjectURL(file)
       });
     });
-    
     this.showToast(`Added ${uniqueFiles.length} image${uniqueFiles.length > 1 ? 's' : ''}`, 'good');
     this.updateLayout();
   }
@@ -388,15 +390,14 @@ class PhotoMakerUI {
   }
   
   clearAll() {
-    // Clean up object URLs to prevent memory leaks
+    // Revoke blob URLs to free memory and prevent churn
     this.items.forEach(item => {
-      if (item.file && typeof item.file === 'object') {
-        URL.revokeObjectURL(item.file);
-      }
+      if (item.url) URL.revokeObjectURL(item.url);
     });
-    
     this.items = [];
-    this.updateLayout();
+    this._lastRenderedCount = 0;
+    if (this.elements.vgrid) this.elements.vgrid.innerHTML = '';
+    if (this.elements.spacer) this.elements.spacer.style.height = '0px';
     this.showToast('All images cleared', 'info');
   }
   
@@ -423,66 +424,91 @@ class PhotoMakerUI {
   }
   
   updateLayout() {
-    if (!this.elements.spacer || !this.elements.vgrid) return;
-    
-    // Clear existing content
-    this.elements.vgrid.innerHTML = '';
-    
+    const { spacer, vgrid } = this.elements;
+    if (!spacer || !vgrid) return;
+
+    // Recompute columns only if needed
+    const prevCols = this.colCount;
+    this.computeColumns();
+
+    // If column count changed, we must reposition all cards
+    const mustRelayout = prevCols !== this.colCount;
+
     if (this.items.length === 0) {
-      this.elements.spacer.style.height = '0px';
+      spacer.style.height = '0px';
+      vgrid.innerHTML = '';
+      this._lastRenderedCount = 0;
       return;
     }
-    
-    // Calculate layout
-    this.computeColumns();
+
     this.rowCount = Math.ceil(this.items.length / this.colCount);
     const totalHeight = this.rowCount * (this.cardH + this.gap) + this.gap;
-    
-    // Set spacer height
-    this.elements.spacer.style.height = `${totalHeight}px`;
-    
-    // Render all items
+    spacer.style.height = `${totalHeight}px`;
+
+    if (mustRelayout) {
+      // Reposition existing cards without recreating URLs
+      vgrid.innerHTML = '';
+      this._lastRenderedCount = 0;
+    }
+
+    // Append only the new items not yet rendered
     this.renderItems();
   }
-  
+
+  // Only append new cards; avoid clearing the grid
   renderItems() {
-    if (!this.elements.vgrid) return;
-    
-    // Use DocumentFragment for better performance
-    const fragment = document.createDocumentFragment();
-    
-    this.items.forEach((item, i) => {
-      const r = Math.floor(i / this.colCount);
-      const c = i % this.colCount;
-      const x = this.gap + c * (this.cardW + this.gap);
-      const y = this.gap + r * (this.cardH + this.gap);
-      
-      const card = this.createCard(item, x, y);
-      fragment.appendChild(card);
-    });
-    
-    this.elements.vgrid.appendChild(fragment);
+    const { vgrid } = this.elements;
+    if (!vgrid) return;
+
+    const start = this._lastRenderedCount || 0;
+    const total = this.items.length;
+    if (start >= total) return;
+
+    const batch = 80; // tweak for device
+    let i = start;
+
+    const step = () => {
+      const frag = document.createDocumentFragment();
+      const end = Math.min(i + batch, total);
+      for (; i < end; i++) {
+        const r = Math.floor(i / this.colCount);
+        const c = i % this.colCount;
+        const x = this.gap + c * (this.cardW + this.gap);
+        const y = this.gap + r * (this.cardH + this.gap);
+        frag.appendChild(this.createCard(this.items[i], x, y));
+      }
+      vgrid.appendChild(frag);
+      if (i < total) {
+        requestAnimationFrame(step);
+      } else {
+        this._lastRenderedCount = total;
+      }
+    };
+    requestAnimationFrame(step);
   }
-  
+
+  // Reuse the URL; set stable sizing hints
   createCard(item, x, y) {
     const card = document.createElement('div');
     card.className = 'card';
     card.style.width = `${this.cardW}px`;
     card.style.transform = `translate(${x}px, ${y}px)`;
     card.style.position = 'absolute';
-    
-    // Image
+
     const img = document.createElement('img');
     img.className = 'thumb';
     img.loading = 'lazy';
-    img.src = URL.createObjectURL(item.file);
+    img.decoding = 'async';
+    img.fetchPriority = 'low';
+    img.width = this.cardW; // sizing hint to prevent reflow
+    img.height = 120; // your fixed thumb height
+    img.src = item.url; // reuse, do not recreate
     img.alt = item.file.name;
-    
-    // Card body
+    img.style.contentVisibility = 'auto'; // reduces paint until visible
+
     const body = document.createElement('div');
     body.className = 'card-body';
-    
-    // Input
+
     const input = document.createElement('input');
     input.className = 'input';
     input.placeholder = 'Design Number';
@@ -491,11 +517,10 @@ class PhotoMakerUI {
     input.addEventListener('input', (e) => {
       item.design = e.target.value.trim();
     });
-    
+
     body.appendChild(input);
     card.appendChild(img);
     card.appendChild(body);
-    
     return card;
   }
   
@@ -678,9 +703,7 @@ class PhotoMakerUI {
     
     // Clean up object URLs
     this.items.forEach(item => {
-      if (item.file && typeof item.file === 'object') {
-        URL.revokeObjectURL(item.file);
-      }
+      if (item.url) URL.revokeObjectURL(item.url);
     });
   }
   
