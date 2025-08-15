@@ -3,17 +3,14 @@ import json
 import os
 import secrets
 from datetime import timedelta, datetime
-
 from dotenv import load_dotenv
-load_dotenv()  # Load .env variables
-
+load_dotenv()
 from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse
-
 from platemaker_module import PlateMaker
 from google_drive_uploader import DriveUploader
 
@@ -21,19 +18,13 @@ from google_drive_uploader import DriveUploader
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "change-this")
-
 SESSION_SECRET = os.getenv("SESSION_SECRET", secrets.token_hex(32))
 SESSION_COOKIE_NAME = "admin_session"
 SESSION_MAX_AGE_MIN = int(os.getenv("SESSION_MAX_AGE_MIN", "60"))
 
 # ---------------- FASTAPI ----------------
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from starlette.templating import Jinja2Templates
-
 app = FastAPI()
 
 # Mount static files
@@ -54,7 +45,6 @@ app.add_middleware(
 
 platemaker = PlateMaker()
 drive_uploader = DriveUploader()
-
 catalog_options = [
     "Blueberry", "Lavanya", "Soundarya",
     "Malai Crape", "Sweet Sixteen",
@@ -117,16 +107,14 @@ async def logout(request: Request):
     return RedirectResponse(url="/login", status_code=303)
 
 # ------------- ROUTES: PAGES -------------
+
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
     touch_session(request)
     if not is_authenticated(request):
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("landing.html", {"request": request})
-@app.get('/favicon.ico', include_in_schema=False)
-@app.get('/favicon.png', include_in_schema=False) 
-async def favicon():
-    return Response(status_code=204)  # No Content
+
 @app.get("/app", response_class=HTMLResponse)
 async def app_view(request: Request):
     touch_session(request)
@@ -135,6 +123,7 @@ async def app_view(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "catalogs": catalog_options})
 
 # ------------- ROUTES: API -------------
+
 @app.post("/upload", response_class=JSONResponse)
 async def upload_images(
     request: Request,
@@ -145,7 +134,6 @@ async def upload_images(
     touch_session(request)
     if not is_authenticated(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
-
     try:
         design_map = {
             int(item["index"]): (item.get("design_number", "") or "").strip()
@@ -159,20 +147,14 @@ async def upload_images(
         try:
             img_bytes = await file.read()
             design_number = design_map.get(idx, "") or f"Design_{idx+1}"
-
             processed_img = platemaker.process_image(
                 io.BytesIO(img_bytes), catalog, design_number
             )
-
             output_filename = f"{catalog} - {design_number}.jpg"
             img_out_bytes = io.BytesIO()
             processed_img.save(img_out_bytes, format="JPEG", quality=100)
             img_out_bytes.seek(0)
-
-            drive_url = drive_uploader.upload_image(
-                img_out_bytes, output_filename, catalog
-            )
-
+            drive_url = drive_uploader.upload_image(img_out_bytes, output_filename, catalog)
             results.append({
                 "filename": output_filename,
                 "url": drive_url,
@@ -186,7 +168,6 @@ async def upload_images(
                 "status": "error",
                 "error": str(e)
             })
-
     return JSONResponse({"results": results, "catalog": catalog})
 
 @app.exception_handler(404)
@@ -195,7 +176,5 @@ async def not_found(request: Request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
-
-# Export for Vercel
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 handler = app
