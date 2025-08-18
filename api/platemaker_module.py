@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import time
 from io import BytesIO
 import requests
 from PIL import Image, ImageDraw, ImageFont
@@ -20,11 +21,11 @@ class PlateMaker:
         self.LOGO_PATH = "logo/Shobha Emboss.png"
 
         # rembg API config from environment
-        # Default to official rembg API URL you shared if not set
         self.REMBG_API_URL = os.getenv("REMBG_API_URL", "https://api.rembg.com/rmbg").strip()
         self.REMBG_API_KEY = os.getenv("REMBG_API_KEY", "").strip()
+        
         if not self.REMBG_API_KEY:
-            raise RuntimeError("REMBG_API_KEY is not set. Configure it in environment variables.")
+            print("⚠️ REMBG_API_KEY not set. Will use fallback background removal.")
 
     def process_image(self, image_file, catalog, design_number, status_callback=None):
         if status_callback:
@@ -39,19 +40,25 @@ class PlateMaker:
         name = catalog
 
         if status_callback:
-            status_callback("🎭 Removing background via API...")
+            status_callback("🎭 Removing background...")
 
-        fg = self.remove_bg_from_bytes(img_bytes)
+        # Try API first, fallback if fails
+        try:
+            fg = self.remove_bg_from_bytes(img_bytes)
+        except Exception as e:
+            print(f"Background removal API failed: {e}")
+            if status_callback:
+                status_callback("🎭 Using fallback background removal...")
+            fg = self.fallback_bg_removal(img_bytes)
+
         fg = self.trim_transparent(fg)
 
         if status_callback:
             status_callback("📏 Resizing image...")
-
         fg = self.downsize(fg, self.FRAME_W, self.FRAME_H)
 
         if status_callback:
             status_callback("🏷️ Adding logo overlay...")
-
         fg_canvas = Image.new("RGBA", fg.size, (0, 0, 0, 0))
         fg_canvas.paste(fg, (0, 0), fg)
         fg_canvas = self.add_logo_overlay(fg_canvas, (0, 0), (fg.width, fg.height))
@@ -59,7 +66,6 @@ class PlateMaker:
 
         if status_callback:
             status_callback("✏️ Creating banner...")
-
         banner_text = self.make_banner_text(name, design_number)
         font = self.best_font(banner_text, self.FRAME_W)
         tw, th = self.text_wh(banner_text, font)
@@ -67,7 +73,6 @@ class PlateMaker:
 
         if status_callback:
             status_callback("🎨 Composing final image...")
-
         cv = self.make_canvas(banner_h)
         draw = ImageDraw.Draw(cv)
 
@@ -85,29 +90,73 @@ class PlateMaker:
         return cv.convert("RGB")
 
     def remove_bg_from_bytes(self, img_bytes: bytes) -> Image.Image:
-        """
-        Removes background via rembg API.
+        """Remove background via rembg API with retries and timeout"""
+        if not self.REMBG_API_KEY:
+            raise RuntimeError("REMBG API key not configured")
 
-        POST {REMBG_API_URL}
-        headers: {"x-api-key": REMBG_API_KEY}
-        files:   {"image": <bytes>}
-        """
         files = {"image": ("upload.jpg", img_bytes)}
         headers = {"x-api-key": self.REMBG_API_KEY}
 
-        resp = requests.post(self.REMBG_API_URL, headers=headers, files=files, timeout=60)
-        if resp.status_code == 200:
-            return Image.open(BytesIO(resp.content)).convert("RGBA")
-        else:
-            detail = None
+        # Try API with retries
+        for attempt in range(3):
             try:
-                detail = resp.json()
-            except Exception:
-                detail = resp.text[:500]
-            raise RuntimeError(f"Background removal API failed ({resp.status_code}): {detail}")
+                resp = requests.post(
+                    self.REMBG_API_URL, 
+                    headers=headers, 
+                    files=files, 
+                    timeout=30  # Reduced timeout
+                )
+                
+                if resp.status_code == 200:
+                    return Image.open(BytesIO(resp.content)).convert("RGBA")
+                elif resp.status_code == 429:  # Rate limited
+                    if attempt < 2:
+                        time.sleep(2 ** attempt)  # Exponential backoff
+                        continue
+                
+                # Log other status codes
+                print(f"rembg API returned {resp.status_code}: {resp.text[:200]}")
+                
+            except requests.exceptions.Timeout:
+                print(f"rembg API timeout (attempt {attempt + 1}/3)")
+                if attempt < 2:
+                    time.sleep(1)
+                    continue
+            except requests.exceptions.RequestException as e:
+                print(f"rembg API request error: {e}")
+                if attempt < 2:
+                    time.sleep(1)
+                    continue
+
+        raise RuntimeError("Background removal API failed after 3 attempts")
+
+    def fallback_bg_removal(self, img_bytes: bytes) -> Image.Image:
+        """Fallback: Simple white/light background removal"""
+        try:
+            img = Image.open(BytesIO(img_bytes)).convert("RGBA")
+            
+            # Get image data
+            data = img.getdata()
+            new_data = []
+            
+            # Remove white/light backgrounds (simple threshold)
+            for item in data:
+                # If pixel is mostly white/light, make it transparent
+                if item[0] > 240 and item[1] > 240 and item[2] > 240:
+                    new_data.append((255, 255, 255, 0))  # Transparent
+                else:
+                    new_data.append(item)
+            
+            img.putdata(new_data)
+            return img
+            
+        except Exception as e:
+            print(f"Fallback background removal failed: {e}")
+            # Last resort: return original image with white background
+            img = Image.open(BytesIO(img_bytes)).convert("RGBA")
+            return img
 
     # ---------------- Original helpers preserved ----------------
-
     def trim_transparent(self, img: Image.Image) -> Image.Image:
         if img.mode != "RGBA":
             img = img.convert("RGBA")
@@ -127,20 +176,26 @@ class PlateMaker:
 
     def add_logo_overlay(self, canvas: Image.Image, fg_pos, fg_size, size_ratio=0.20, opacity=0.31, margin=100) -> Image.Image:
         canvas = canvas.convert("RGBA")
-        logo = Image.open(self.LOGO_PATH).convert("RGBA")
+        
+        try:
+            logo = Image.open(self.LOGO_PATH).convert("RGBA")
+            target_w = int(fg_size[0] * size_ratio)
+            scale = target_w / logo.width
+            logo = logo.resize((target_w, int(logo.height * scale)), Image.Resampling.LANCZOS)
 
-        target_w = int(fg_size[0] * size_ratio)
-        scale = target_w / logo.width
-        logo = logo.resize((target_w, int(logo.height * scale)), Image.Resampling.LANCZOS)
+            alpha = logo.split()[3].point(lambda p: int(p * opacity))
+            logo.putalpha(alpha)
 
-        alpha = logo.split()[1].point(lambda p: int(p * opacity))
-        logo.putalpha(alpha)
+            sx, sy = fg_pos
+            fw, fh = fg_size
+            lx = sx + fw - logo.width - margin
+            ly = sy + fh - logo.height - margin
 
-        sx, sy = fg_pos
-        fw, fh = fg_size
-        lx = sx + fw - logo.width - margin
-        ly = sy + fh - logo.height - margin
-        canvas.paste(logo, (lx, ly), logo)
+            canvas.paste(logo, (lx, ly), logo)
+        except Exception as e:
+            print(f"Logo overlay failed: {e}")
+            # Continue without logo if it fails
+            
         return canvas
 
     def make_banner_text(self, name: str, design: str) -> str:
@@ -166,8 +221,8 @@ class PlateMaker:
                 return ImageFont.load_default()
 
     def text_wh(self, txt: str, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
-        x0, y0, x1, y1 = font.getbbox(txt)
-        return x1 - x0, y1 - y0
+        bbox = font.getbbox(txt)
+        return bbox[2] - bbox, bbox[3] - bbox[1]
 
     def best_font(self, txt: str, max_w: int) -> ImageFont.FreeTypeFont:
         for size in range(self.MAX_FONT_SIZE, self.MIN_FONT_SIZE - 1, -2):
