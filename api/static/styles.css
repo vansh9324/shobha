@@ -1512,3 +1512,89 @@ select:focus-visible {
   margin-bottom: var(--spacing-md);
   text-align: center;
 }
+/* Add these missing styles to your existing styles.css */
+
+.viewport-glass {
+    position: relative;
+    min-height: 200px;
+    max-height: 60vh;
+    border-radius: 12px;
+    overflow-y: auto;
+    background: rgba(20, 24, 27, 0.5);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vgrid {
+    position: relative;
+    min-height: 100px;
+}
+
+.spacer {
+    width: 100%;
+}
+
+.toast {
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.camera-wrap {
+    margin: 1rem 0;
+}
+
+.btn-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.result-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.result-name {
+    font-weight: 600;
+}
+
+.link {
+    color: #4f8cff;
+    text-decoration: none;
+    font-size: 0.875rem;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
+/* Mobile fixes */
+@media (max-width: 768px) {
+    .form-row-glass {
+        flex-direction: column;
+    }
+    
+    .viewport-glass {
+        max-height: 40vh;
+    }
+    
+    .action-buttons-glass {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+}
