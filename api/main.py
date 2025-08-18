@@ -36,35 +36,50 @@ drive_uploader = None
 # ---------------- LIFESPAN MANAGEMENT ----------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize and cleanup resources"""
     global platemaker, drive_uploader
     
     print("🚀 Starting application initialization...")
     
+    # Initialize PlateMaker
     try:
-        # Initialize PlateMaker
+        print("Initializing PlateMaker...")
         platemaker = PlateMaker()
-        print("✅ PlateMaker initialized")
-        
-        # Initialize DriveUploader  
-        drive_uploader = DriveUploader()
-        print("✅ DriveUploader initialized")
-        
+        print("✅ PlateMaker ready")
     except Exception as e:
-        print(f"❌ Initialization failed: {e}")
-        # Don't raise here - let app start but handle gracefully in endpoints
+        print(f"❌ PlateMaker failed: {e}")
+        import traceback
+        print("Traceback:")
+        traceback.print_exc()
         platemaker = None
+    
+    # Initialize DriveUploader
+    try:
+        print("Initializing DriveUploader...")
+        drive_uploader = DriveUploader()
+        print("✅ DriveUploader ready")
+    except Exception as e:
+        print(f"❌ DriveUploader failed: {e}")
+        import traceback
+        print("Traceback:")
+        traceback.print_exc()
         drive_uploader = None
     
-    print("🎯 Application ready to serve requests")
+    # Summary
+    services_ready = {
+        "platemaker": platemaker is not None,
+        "drive_uploader": drive_uploader is not None
+    }
+    
+    print(f"🎯 Services status: {services_ready}")
+    
+    if not any(services_ready.values()):
+        print("⚠️ No services initialized - app will have limited functionality")
     
     yield  # App runs here
     
-    # Cleanup (optional)
     print("🧹 Application shutting down...")
     platemaker = None
     drive_uploader = None
-
 # ---------------- FASTAPI APP ----------------
 app = FastAPI(lifespan=lifespan)
 
