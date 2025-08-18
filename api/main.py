@@ -266,18 +266,33 @@ async def upload_images(
     mapping: str = Form(...),
     files: list[UploadFile] = File(...)
 ):
-    # Authentication check
+    # Check authentication
     if not touch_session(request):
-        raise HTTPException(status_code=401, detail="Session expired - please login again")
+        raise HTTPException(status_code=401, detail="Session expired")
 
-    # Validate inputs
-    if not catalog or catalog not in catalog_options:
-        return JSONResponse({"error": "Invalid catalog selection"}, status_code=400)
+    # Mobile-specific validation
+    if len(files) > 10:
+        return JSONResponse({"error": "Maximum 10 files allowed"}, status_code=413)
+    
+    # Check individual file sizes (mobile limit)
+    for file in files:
+        if file.size and file.size > 4 * 1024 * 1024:  # 4MB per file
+            return JSONResponse({"error": f"File {file.filename} too large (max 4MB)"}, status_code=413)
+    
+    # Check total size (mobile bandwidth)
+    total_size = sum(file.size or 0 for file in files)
+    if total_size > 20 * 1024 * 1024:  # 20MB total
+        return JSONResponse({"error": "Total size too large (max 20MB)"}, status_code=413)
 
-    # Validate files
-    valid, error_msg = validate_file_upload(files)
-    if not valid:
-        return JSONResponse({"error": error_msg}, status_code=413)
+    # Get services
+    platemaker = get_platemaker()
+    drive_uploader = get_drive_uploader()
+
+    if platemaker is None:
+        return JSONResponse({"error": "Image processing service unavailable"}, status_code=503)
+    
+    if drive_uploader is None:
+        return JSONResponse({"error": "Upload service unavailable"}, status_code=503)
 
     # Parse mapping
     try:
@@ -288,29 +303,10 @@ async def upload_images(
     except Exception as e:
         return JSONResponse({"error": f"Invalid design mapping: {str(e)}"}, status_code=400)
 
-    # Get services
-    platemaker = get_platemaker()
-    drive_uploader = get_drive_uploader()
-
-    if platemaker is None:
-        return JSONResponse({
-            "error": "Image processing service unavailable",
-            "details": "Please try again in a few moments"
-        }, status_code=503)
-    
-    if drive_uploader is None:
-        return JSONResponse({
-            "error": "File upload service unavailable", 
-            "details": "Please try again in a few moments"
-        }, status_code=503)
-
-    # Process files
     results = []
-    processed_count = 0
     
     for idx, file in enumerate(files):
         try:
-            # Read file
             img_bytes = await file.read()
             design_number = design_map.get(idx, "") or f"Design_{idx+1}"
             
@@ -321,9 +317,7 @@ async def upload_images(
                     catalog, 
                     design_number
                 )
-                processed_count += 1
             except Exception as e:
-                print(f"Image processing failed for {file.filename}: {e}")
                 results.append({
                     "filename": file.filename,
                     "status": "error",
@@ -332,13 +326,12 @@ async def upload_images(
                 })
                 continue
 
-            # Prepare for upload
+            # Upload to Drive
             output_filename = f"{catalog} - {design_number}.jpg"
             img_out_bytes = io.BytesIO()
             processed_img.save(img_out_bytes, format="JPEG", quality=95)
             img_out_bytes.seek(0)
 
-            # Upload to Drive
             try:
                 url = drive_uploader.upload_image(img_out_bytes, output_filename, catalog)
                 results.append({
@@ -348,7 +341,6 @@ async def upload_images(
                     "design_number": design_number
                 })
             except Exception as e:
-                print(f"Upload failed for {output_filename}: {e}")
                 results.append({
                     "filename": output_filename,
                     "status": "error",
@@ -357,28 +349,19 @@ async def upload_images(
                 })
 
         except Exception as e:
-            print(f"File processing error for {file.filename}: {e}")
             results.append({
                 "filename": file.filename,
                 "status": "error",
-                "error": f"File error: {str(e)[:50]}"
+                "error": f"File error: {str(e)[:100]}"
             })
 
-    # Response summary
-    success_count = len([r for r in results if r["status"] == "success"])
-    error_count = len([r for r in results if r["status"] == "error"])
-    
     return JSONResponse({
         "results": results,
         "catalog": catalog,
-        "summary": {
-            "total": len(files),
-            "processed": processed_count,
-            "uploaded": success_count,
-            "failed": error_count
-        }
+        "total": len(files),
+        "successful": len([r for r in results if r["status"] == "success"]),
+        "failed": len([r for r in results if r["status"] == "error"])
     })
-
 # ------------- ERROR HANDLERS -------------
 @app.exception_handler(404)
 async def not_found(request: Request, exc):
