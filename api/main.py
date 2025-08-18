@@ -3,6 +3,7 @@ import json
 import os
 import secrets
 from datetime import timedelta, datetime
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,8 +29,44 @@ SESSION_SECRET = os.getenv("SESSION_SECRET", secrets.token_hex(32))
 SESSION_COOKIE_NAME = "admin_session"
 SESSION_MAX_AGE_MIN = int(os.getenv("SESSION_MAX_AGE_MIN", "60"))
 
-# ---------------- FASTAPI ----------------
-app = FastAPI()
+# ---------------- GLOBAL STATE ----------------
+platemaker = None
+drive_uploader = None
+
+# ---------------- LIFESPAN MANAGEMENT ----------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize and cleanup resources"""
+    global platemaker, drive_uploader
+    
+    print("🚀 Starting application initialization...")
+    
+    try:
+        # Initialize PlateMaker
+        platemaker = PlateMaker()
+        print("✅ PlateMaker initialized")
+        
+        # Initialize DriveUploader  
+        drive_uploader = DriveUploader()
+        print("✅ DriveUploader initialized")
+        
+    except Exception as e:
+        print(f"❌ Initialization failed: {e}")
+        # Don't raise here - let app start but handle gracefully in endpoints
+        platemaker = None
+        drive_uploader = None
+    
+    print("🎯 Application ready to serve requests")
+    
+    yield  # App runs here
+    
+    # Cleanup (optional)
+    print("🧹 Application shutting down...")
+    platemaker = None
+    drive_uploader = None
+
+# ---------------- FASTAPI APP ----------------
+app = FastAPI(lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -43,14 +80,6 @@ app.add_middleware(
     https_only=False,
     max_age=SESSION_MAX_AGE_MIN * 60,
 )
-
-platemaker = PlateMaker()
-drive_uploader = None
-
-@app.on_event("startup")
-async def init_clients():
-    global drive_uploader
-    drive_uploader = DriveUploader()
 
 # ---------------- DATA ----------------
 catalog_options = [
@@ -71,7 +100,7 @@ def logout_user(request: Request):
     request.session.clear()
 
 def touch_session(request: Request) -> bool:
-    """Fixed session management - returns bool for auth status"""
+    """Fixed session management"""
     if not request.session.get("auth"):
         return False
     
@@ -144,9 +173,12 @@ async def debug_info(request: Request):
             "auth": request.session.get("auth", False),
             "last_seen": request.session.get("last_seen", "none")
         },
+        "services": {
+            "platemaker_ready": platemaker is not None,
+            "drive_uploader_ready": drive_uploader is not None,
+        },
         "env_vars": {
             "admin_username": bool(ADMIN_USERNAME),
-            "admin_password": bool(ADMIN_PASSWORD),
             "session_secret": bool(SESSION_SECRET),
             "rembg_url": bool(os.getenv("REMBG_API_URL")),
             "rembg_key": bool(os.getenv("REMBG_API_KEY")),
@@ -163,16 +195,31 @@ async def upload_images(
     mapping: str = Form(...),
     files: list[UploadFile] = File(...)
 ):
+    # Check authentication
     if not touch_session(request):
         raise HTTPException(status_code=401, detail="Session expired")
 
+    # Check if services are initialized
+    if platemaker is None:
+        return JSONResponse(
+            {"error": "Image processing service not available. Please try again later."}, 
+            status_code=503
+        )
+    
+    if drive_uploader is None:
+        return JSONResponse(
+            {"error": "File upload service not available. Please try again later."}, 
+            status_code=503
+        )
+
+    # Parse mapping
     try:
         design_map = {
             int(item["index"]): (item.get("design_number", "") or "").strip()
             for item in json.loads(mapping)
         }
     except Exception as e:
-        return JSONResponse({"error": f"Invalid mapping payload: {str(e)}"}, status_code=400)
+        return JSONResponse({"error": f"Invalid mapping data: {str(e)}"}, status_code=400)
 
     results = []
     
@@ -181,26 +228,24 @@ async def upload_images(
             img_bytes = await file.read()
             design_number = design_map.get(idx, "") or f"Design_{idx+1}"
             
-            # Process image via PlateMaker with better error handling
+            # Process image
             try:
                 processed_img = platemaker.process_image(
                     io.BytesIO(img_bytes), catalog, design_number
                 )
             except Exception as e:
+                error_msg = "Image processing failed"
                 if "rembg" in str(e).lower() or "background removal" in str(e).lower():
-                    results.append({
-                        "filename": getattr(file, "filename", f"image_{idx+1}"),
-                        "status": "error",
-                        "error": "Background removal service unavailable. Please try again later.",
-                        "design_number": design_number
-                    })
-                else:
-                    results.append({
-                        "filename": getattr(file, "filename", f"image_{idx+1}"),
-                        "status": "error", 
-                        "error": f"Image processing failed: {str(e)[:100]}",
-                        "design_number": design_number
-                    })
+                    error_msg = "Background removal service unavailable"
+                elif "timeout" in str(e).lower():
+                    error_msg = "Processing timeout"
+                
+                results.append({
+                    "filename": getattr(file, "filename", f"image_{idx+1}"),
+                    "status": "error",
+                    "error": f"{error_msg}. Please try again.",
+                    "design_number": design_number
+                })
                 continue
 
             # Upload to Drive
@@ -221,19 +266,30 @@ async def upload_images(
                 results.append({
                     "filename": output_filename,
                     "status": "error",
-                    "error": f"Google Drive upload failed: {str(e)[:100]}",
+                    "error": f"Upload failed: {str(e)[:100]}",
                     "design_number": design_number
                 })
 
         except Exception as e:
             results.append({
                 "filename": getattr(file, "filename", f"image_{idx+1}"),
-                "url": None,
                 "status": "error",
                 "error": f"File processing error: {str(e)[:100]}"
             })
 
     return JSONResponse({"results": results, "catalog": catalog})
+
+# ------------- HEALTH CHECK -------------
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    return {
+        "status": "healthy",
+        "services": {
+            "platemaker": platemaker is not None,
+            "drive_uploader": drive_uploader is not None
+        }
+    }
 
 # ------------- ERRORS -------------
 @app.exception_handler(404)
