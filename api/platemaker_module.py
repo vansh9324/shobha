@@ -1,257 +1,249 @@
-import io
-import json
+#!/usr/bin/env python3
 import os
-import secrets
-from datetime import timedelta, datetime
-from dotenv import load_dotenv
+import time
+from io import BytesIO
+import requests
+from PIL import Image, ImageDraw, ImageFont
 
-load_dotenv()
+class PlateMaker:
+    def __init__(self):
+        # Configuration
+        self.FRAME_W, self.FRAME_H = 5_000, 4_000
+        self.SIDE_PAD = 40
+        self.TOP_PAD = 40
+        self.BOTTOM_PAD = 40
+        self.BANNER_PAD_Y = 60
+        self.MAX_FONT_SIZE = 180
+        self.MIN_FONT_SIZE = 40
+        self.TEXT_COLOR = (0, 0, 0)
+        
+        # File paths - will check existence
+        self.FONT_PATH = "fonts/NotoSerifDisplay-Italic-VariableFont_wdth,wght.ttf"
+        self.LOGO_PATH = "logo/Shobha Emboss.png"
+        
+        # rembg API config
+        self.REMBG_API_URL = os.getenv("REMBG_API_URL", "https://api.rembg.com/rmbg").strip()
+        self.REMBG_API_KEY = os.getenv("REMBG_API_KEY", "").strip()
+        
+        # Check file availability
+        print(f"🔤 Font file exists: {os.path.exists(self.FONT_PATH)}")
+        print(f"🖼️ Logo file exists: {os.path.exists(self.LOGO_PATH)}")
+        print(f"🔑 REMBG API configured: {bool(self.REMBG_API_KEY)}")
+        
+        # Initialize successfully even if files missing
+        print("✅ PlateMaker initialized with fallbacks")
 
-from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from starlette.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware
-from starlette.responses import PlainTextResponse
+    def process_image(self, image_file, catalog, design_number, status_callback=None):
+        if status_callback:
+            status_callback("📤 Reading image...")
 
-# ---------------- CONFIG ----------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+        if hasattr(image_file, "read"):
+            img_bytes = image_file.read()
+        else:
+            img_bytes = image_file
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "change-this")
-SESSION_SECRET = os.getenv("SESSION_SECRET", secrets.token_hex(32))
-SESSION_COOKIE_NAME = "admin_session"
-SESSION_MAX_AGE_MIN = int(os.getenv("SESSION_MAX_AGE_MIN", "60"))
+        name = catalog
 
-# ---------------- FASTAPI ----------------
-app = FastAPI()
+        if status_callback:
+            status_callback("🎭 Removing background...")
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
-
-# Session middleware
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SESSION_SECRET,
-    session_cookie=SESSION_COOKIE_NAME,
-    same_site="lax",
-    https_only=False,
-    max_age=SESSION_MAX_AGE_MIN * 60,
-)
-
-# ---------------- GLOBAL SERVICES (LAZY INITIALIZED) ----------------
-_platemaker = None
-_drive_uploader = None
-
-def get_platemaker():
-    global _platemaker
-    if _platemaker is None:
+        # Background removal with fallback
         try:
-            from api.platemaker_module import PlateMaker
-            _platemaker = PlateMaker()
-            print("✅ PlateMaker initialized on-demand")
+            if self.REMBG_API_KEY:
+                fg = self.remove_bg_from_bytes(img_bytes)
+            else:
+                raise RuntimeError("No API key - using fallback")
         except Exception as e:
-            print(f"❌ PlateMaker failed: {e}")
-            _platemaker = False  # Mark as failed
-    return _platemaker if _platemaker is not False else None
+            print(f"Background removal API failed: {e}")
+            if status_callback:
+                status_callback("🎭 Using simple background removal...")
+            fg = self.fallback_bg_removal(img_bytes)
 
-def get_drive_uploader():
-    global _drive_uploader
-    if _drive_uploader is None:
+        fg = self.trim_transparent(fg)
+
+        if status_callback:
+            status_callback("📏 Resizing image...")
+        fg = self.downsize(fg, self.FRAME_W, self.FRAME_H)
+
+        if status_callback:
+            status_callback("🏷️ Adding logo overlay...")
+        fg_canvas = Image.new("RGBA", fg.size, (0, 0, 0, 0))
+        fg_canvas.paste(fg, (0, 0), fg)
+        fg_canvas = self.add_logo_overlay(fg_canvas, (0, 0), (fg.width, fg.height))
+        fg = fg_canvas
+
+        if status_callback:
+            status_callback("✏️ Creating banner...")
+        banner_text = self.make_banner_text(name, design_number)
+        font = self.best_font(banner_text, self.FRAME_W)
+        tw, th = self.text_wh(banner_text, font)
+        banner_h = th + 2 * self.BANNER_PAD_Y
+
+        if status_callback:
+            status_callback("🎨 Composing final image...")
+        cv = self.make_canvas(banner_h)
+        draw = ImageDraw.Draw(cv)
+
+        bx = self.SIDE_PAD + (self.FRAME_W - tw) // 2
+        by = self.TOP_PAD + (banner_h - th) // 2
+        draw.text((bx, by), banner_text, font=font, fill=self.TEXT_COLOR)
+
+        sx = self.SIDE_PAD + (self.FRAME_W - fg.width) // 2
+        sy = self.TOP_PAD + banner_h + (self.FRAME_H - fg.height) // 2
+        cv.paste(fg, (sx, sy), fg)
+
+        if status_callback:
+            status_callback("✅ Complete!")
+
+        return cv.convert("RGB")
+
+    def remove_bg_from_bytes(self, img_bytes: bytes) -> Image.Image:
+        if not self.REMBG_API_KEY:
+            raise RuntimeError("REMBG API key not configured")
+
+        files = {"image": ("upload.jpg", img_bytes)}
+        headers = {"x-api-key": self.REMBG_API_KEY}
+
+        for attempt in range(2):  # Reduced attempts for faster fallback
+            try:
+                resp = requests.post(self.REMBG_API_URL, headers=headers, files=files, timeout=20)
+                if resp.status_code == 200:
+                    return Image.open(BytesIO(resp.content)).convert("RGBA")
+                print(f"rembg API error {resp.status_code}: {resp.text[:100]}")
+            except Exception as e:
+                print(f"rembg API attempt {attempt + 1} failed: {e}")
+                if attempt == 0:
+                    time.sleep(1)
+
+        raise RuntimeError("Background removal API failed")
+
+    def fallback_bg_removal(self, img_bytes: bytes) -> Image.Image:
+        """Simple white background removal"""
         try:
-            from api.google_drive_uploader import DriveUploader
-            _drive_uploader = DriveUploader()
-            print("✅ DriveUploader initialized on-demand")
-        except Exception as e:
-            print(f"❌ DriveUploader failed: {e}")
-            _drive_uploader = False  # Mark as failed
-    return _drive_uploader if _drive_uploader is not False else None
-
-# ---------------- DATA ----------------
-catalog_options = [
-    "Blueberry", "Lavanya", "Soundarya",
-    "Malai Crape", "Sweet Sixteen", 
-    "Heritage", "Shakuntala"
-]
-
-# ------------- HELPERS -------------
-def is_authenticated(request: Request) -> bool:
-    return request.session.get("auth") is True
-
-def login_user(request: Request):
-    request.session["auth"] = True
-    request.session["last_seen"] = datetime.utcnow().isoformat()
-
-def logout_user(request: Request):
-    request.session.clear()
-
-def touch_session(request: Request) -> bool:
-    if not request.session.get("auth"):
-        return False
-    
-    last = request.session.get("last_seen")
-    if last:
-        try:
-            last_dt = datetime.fromisoformat(last)
-            if datetime.utcnow() - last_dt > timedelta(minutes=SESSION_MAX_AGE_MIN):
-                request.session.clear()
-                return False
-        except Exception:
-            request.session.clear()
-            return False
-    
-    request.session["last_seen"] = datetime.utcnow().isoformat()
-    return True
-
-# ------------- ROUTES: AUTH -------------
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    if is_authenticated(request):
-        return RedirectResponse(url="/", status_code=303)
-    return templates.TemplateResponse("login.html", {"request": request})
-
-@app.post("/login")
-async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
-    expects_json = "application/json" in (request.headers.get("accept") or "").lower()
-    
-    if not (username == ADMIN_USERNAME and password == ADMIN_PASSWORD):
-        if expects_json:
-            return JSONResponse({"ok": False, "error": "Invalid credentials"}, status_code=401)
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"}, status_code=401)
-
-    login_user(request)
-    if expects_json:
-        return JSONResponse({"ok": True})
-    return RedirectResponse(url="/", status_code=303)
-
-@app.post("/logout")
-async def logout(request: Request):
-    logout_user(request)
-    return RedirectResponse(url="/login", status_code=303)
-
-# ------------- ROUTES: PAGES -------------
-@app.get("/", response_class=HTMLResponse)
-async def landing(request: Request):
-    if not touch_session(request):
-        return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("landing.html", {"request": request})
-
-@app.get("/app", response_class=HTMLResponse)
-async def app_view(request: Request):
-    if not touch_session(request):
-        return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("index.html", {"request": request, "catalogs": catalog_options})
-
-# ------------- DEBUG ENDPOINT -------------
-@app.get("/debug")
-async def debug_info(request: Request):
-    platemaker = get_platemaker()
-    drive_uploader = get_drive_uploader()
-    
-    return {
-        "session": {
-            "auth": request.session.get("auth", False),
-            "last_seen": request.session.get("last_seen", "none")
-        },
-        "services": {
-            "platemaker_ready": platemaker is not None,
-            "drive_uploader_ready": drive_uploader is not None,
-        },
-        "env_vars": {
-            "admin_username": bool(ADMIN_USERNAME),
-            "session_secret": bool(SESSION_SECRET),
-            "rembg_url": bool(os.getenv("REMBG_API_URL")),
-            "rembg_key": bool(os.getenv("REMBG_API_KEY")),
-            "google_creds": bool(os.getenv("GOOGLE_APPLICATION_CREDENTIALS")),
-            "google_refresh": bool(os.getenv("GOOGLE_REFRESH_TOKEN")),
-        }
-    }
-
-# ------------- ROUTES: API -------------
-@app.post("/upload", response_class=JSONResponse)
-async def upload_images(
-    request: Request,
-    catalog: str = Form(...),
-    mapping: str = Form(...),
-    files: list[UploadFile] = File(...)
-):
-    # Check authentication
-    if not touch_session(request):
-        raise HTTPException(status_code=401, detail="Session expired")
-
-    # Get services on-demand
-    platemaker = get_platemaker()
-    drive_uploader = get_drive_uploader()
-
-    # Check services availability
-    if platemaker is None:
-        return JSONResponse({"error": "Image processing service not available"}, status_code=503)
-    
-    if drive_uploader is None:
-        return JSONResponse({"error": "File upload service not available"}, status_code=503)
-
-    # Parse mapping
-    try:
-        design_map = {
-            int(item["index"]): (item.get("design_number", "") or "").strip()
-            for item in json.loads(mapping)
-        }
-    except Exception as e:
-        return JSONResponse({"error": f"Invalid mapping data: {str(e)}"}, status_code=400)
-
-    results = []
-    
-    for idx, file in enumerate(files):
-        try:
-            img_bytes = await file.read()
-            design_number = design_map.get(idx, "") or f"Design_{idx+1}"
+            img = Image.open(BytesIO(img_bytes)).convert("RGBA")
+            data = img.getdata()
+            new_data = []
             
-            # Process image
-            try:
-                processed_img = platemaker.process_image(io.BytesIO(img_bytes), catalog, design_number)
-            except Exception as e:
-                results.append({
-                    "filename": getattr(file, "filename", f"image_{idx+1}"),
-                    "status": "error",
-                    "error": f"Processing failed: {str(e)[:100]}",
-                    "design_number": design_number
-                })
-                continue
+            for item in data:
+                # Remove white/light backgrounds
+                if item[0] > 240 and item[1] > 240 and item[2] > 240:
+                    new_data.append((255, 255, 255, 0))
+                else:
+                    new_data.append(item)
+            
+            img.putdata(new_data)
+            return img
+        except Exception:
+            # Last resort - return original
+            return Image.open(BytesIO(img_bytes)).convert("RGBA")
 
-            # Upload to Drive
-            output_filename = f"{catalog} - {design_number}.jpg"
-            img_out_bytes = io.BytesIO()
-            processed_img.save(img_out_bytes, format="JPEG", quality=100)
-            img_out_bytes.seek(0)
+    def trim_transparent(self, img: Image.Image) -> Image.Image:
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
+        bbox = img.getbbox()
+        return img.crop(bbox) if bbox else img
 
-            try:
-                url = drive_uploader.upload_image(img_out_bytes, output_filename, catalog)
-                results.append({
-                    "filename": output_filename,
-                    "url": url,
-                    "status": "success",
-                    "design_number": design_number
-                })
-            except Exception as e:
-                results.append({
-                    "filename": output_filename,
-                    "status": "error",
-                    "error": f"Upload failed: {str(e)[:100]}",
-                    "design_number": design_number
-                })
+    def downsize(self, img: Image.Image, box_w: int, box_h: int) -> Image.Image:
+        if img.width <= box_w and img.height <= box_h:
+            return img
+        scale = min(box_w / img.width, box_h / img.height)
+        return img.resize((int(img.width * scale), int(img.height * scale)), Image.Resampling.LANCZOS)
 
+    def make_canvas(self, banner_h: int) -> Image.Image:
+        w = self.FRAME_W + 2 * self.SIDE_PAD
+        h = self.TOP_PAD + banner_h + self.FRAME_H + self.BOTTOM_PAD
+        return Image.new("RGB", (w, h), "white")
+
+    def add_logo_overlay(self, canvas: Image.Image, fg_pos, fg_size, size_ratio=0.20, opacity=0.31, margin=100) -> Image.Image:
+        """Add logo with fallback if file missing"""
+        try:
+            if not os.path.exists(self.LOGO_PATH):
+                print("⚠️ Logo file missing - skipping overlay")
+                return canvas
+                
+            logo = Image.open(self.LOGO_PATH).convert("RGBA")
+            target_w = int(fg_size[0] * size_ratio)
+            scale = target_w / logo.width
+            logo = logo.resize((target_w, int(logo.height * scale)), Image.Resampling.LANCZOS)
+
+            if logo.mode == "RGBA":
+                alpha = logo.split()[3].point(lambda p: int(p * opacity))
+                logo.putalpha(alpha)
+
+            sx, sy = fg_pos
+            fw, fh = fg_size
+            lx = sx + fw - logo.width - margin
+            ly = sy + fh - logo.height - margin
+            canvas.paste(logo, (lx, ly), logo)
+            
         except Exception as e:
-            results.append({
-                "filename": getattr(file, "filename", f"image_{idx+1}"),
-                "status": "error",
-                "error": f"File error: {str(e)[:100]}"
-            })
+            print(f"Logo overlay failed: {e}")
+            
+        return canvas
 
-    return JSONResponse({"results": results, "catalog": catalog})
+    def make_banner_text(self, name: str, design: str) -> str:
+        return f"{name} 6.30 D.No {design}"
 
-# ------------- ERRORS -------------
-@app.exception_handler(404)
-async def not_found(request: Request, exc):
-    return PlainTextResponse("Not Found", status_code=404)
+    def load_font(self, pts: int) -> ImageFont.FreeTypeFont:
+        """Load font with comprehensive fallbacks"""
+        # Try custom font if exists
+        if os.path.exists(self.FONT_PATH):
+            try:
+                return ImageFont.truetype(self.FONT_PATH, pts)
+            except Exception as e:
+                print(f"Custom font failed: {e}")
+        
+        # Try system fonts
+        system_fonts = [
+            "arial.ttf", "Arial.ttf", "/System/Library/Fonts/Arial.ttf",
+            "DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "calibri.ttf", "Calibri.ttf"
+        ]
+        
+        for font_path in system_fonts:
+            try:
+                return ImageFont.truetype(font_path, pts)
+            except Exception:
+                continue
+        
+        # Final fallback
+        print("⚠️ Using default font - all TrueType fonts failed")
+        return ImageFont.load_default()
+
+    def text_wh(self, txt: str, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
+        """Get text dimensions with error handling"""
+        try:
+            bbox = font.getbbox(txt)
+            if not bbox or len(bbox) != 4:
+                raise ValueError("Invalid bbox")
+            
+            # Handle nested tuples in bbox
+            fixed_bbox = []
+            for elem in bbox:
+                if isinstance(elem, (tuple, list)):
+                    fixed_bbox.append(int(elem[0]))
+                else:
+                    fixed_bbox.append(int(elem))
+            
+            x0, y0, x1, y1 = fixed_bbox
+            return max(x1 - x0, 0), max(y1 - y0, 0)
+            
+        except Exception as e:
+            print(f"text_wh failed: {e}")
+            # Estimate based on font size
+            font_size = getattr(font, 'size', 20)
+            return int(len(txt) * font_size * 0.6), int(font_size * 1.2)
+
+    def best_font(self, txt: str, max_w: int) -> ImageFont.FreeTypeFont:
+        """Find optimal font size"""
+        for size in range(self.MAX_FONT_SIZE, self.MIN_FONT_SIZE - 1, -5):  # Bigger steps
+            try:
+                f = self.load_font(size)
+                text_width, _ = self.text_wh(txt, f)
+                if text_width <= max_w:
+                    return f
+            except Exception as e:
+                print(f"Font sizing error at {size}pt: {e}")
+                continue
+        
+        return self.load_font(self.MIN_FONT_SIZE)
