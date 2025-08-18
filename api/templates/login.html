@@ -1,52 +1,426 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Admin Login — Shobha Sarees</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="/static/styles.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
-</head>
-<body class="theme auth-bg">
-
-  {% include '_navbar.html' %}
-
-  <!-- Dynamic Logo Background with Glassmorphic Login -->
-  <main class="login-hero-dynamic">
-    <div class="dynamic-logo-bg" id="dynamicLogoBg"></div>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>Login - Shobha Sarees</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script defer src="/static/global.js"></script>
+    <script defer src="/static/login.js"></script>
     
-    <!-- Glassmorphic Login Overlay -->
-    <div class="login-glassmorphic-overlay">
-      <div class="login-glass-card glass" id="loginGlassCard">
-        <div class="login-header">
-          <h1 class="login-title">Admin Access</h1>
-          <p class="login-subtitle">Enter your credentials to continue</p>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/static/logo.png" as="image">
+    <link rel="preload" href="/static/logo-red.png" as="image">
+    
+    <!-- PWA Support -->
+    <meta name="theme-color" content="#4f8cff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Shobha Sarees">
+    
+    <!-- Security -->
+    <meta name="referrer" content="no-referrer">
+</head>
+<body class="theme">
+    <!-- Skip Navigation for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Minimal Navigation for Login -->
+    <nav class="navbar glass" role="navigation" aria-label="Login page navigation">
+        <div class="nav-left">
+            <a href="/" class="nav-brand" aria-label="Shobha Sarees home page">
+                <img 
+                    src="/static/logo.png" 
+                    alt="Shobha Sarees logo" 
+                    class="nav-logo" 
+                    id="navLogo"
+                    width="32" 
+                    height="32"
+                >
+                <span class="nav-title">Shobha Sarees</span>
+            </a>
         </div>
         
-        {% if error %}
-        <div class="login-error">{{ error }}</div>
-        {% endif %}
-        
-        <form id="loginForm" class="login-form" method="post">
-          <div class="input-field">
-            <label>Username</label>
-            <input type="text" name="username" required placeholder="Enter username">
-          </div>
-          <div class="input-field">
-            <label>Password</label>
-            <input type="password" name="password" required placeholder="Enter password">
-          </div>
-          <button type="submit" class="login-btn glassmorphic-btn">
-            <span>Sign in</span>
-            <div class="btn-glow"></div>
-          </button>
-        </form>
-      </div>
-    </div>
-  </main>
+        <div class="nav-right">
+            <button 
+                id="themeSwitchGlobal" 
+                class="theme-switch" 
+                role="switch" 
+                aria-checked="false" 
+                aria-label="Toggle between light and dark theme"
+                title="Switch theme"
+            >
+                <div class="switch-track">
+                    <span class="switch-icon" aria-hidden="true">🌙</span>
+                    <span class="switch-icon" aria-hidden="true">☀️</span>
+                    <div class="switch-thumb"></div>
+                </div>
+            </button>
+        </div>
+    </nav>
 
-  {% include '_sidebar_menu.html' %}
-  <div id="toastHost" class="toast-host"></div>
-  <script src="/static/global.js"></script>
+    <!-- Main Login Content -->
+    <main 
+        id="main-content" 
+        role="main" 
+        tabindex="-1" 
+        class="login-hero-dynamic"
+        aria-label="Login to Shobha Sarees"
+    >
+        <!-- Animated Background Logo -->
+        <div class="dynamic-logo-bg" id="dynamicLogoBg" aria-hidden="true"></div>
+        
+        <div class="login-glassmorphic-overlay">
+            <div class="login-glass-card glass">
+                <!-- Login Header -->
+                <header class="login-header">
+                    <h1 class="login-title">Welcome Back</h1>
+                    <p class="login-subtitle">
+                        Sign in to access the Shobha Sarees Photo Maker
+                    </p>
+                </header>
+                
+                <!-- Error Display -->
+                {% if error %}
+                <div 
+                    class="login-error" 
+                    role="alert" 
+                    aria-live="polite"
+                    id="login-error"
+                >
+                    <span aria-hidden="true">⚠️</span>
+                    {{ error }}
+                </div>
+                {% endif %}
+                
+                <!-- Login Form -->
+                <form 
+                    id="loginForm" 
+                    class="login-form" 
+                    method="post" 
+                    action="/login"
+                    novalidate
+                    aria-label="Login form"
+                    aria-describedby="form-instructions"
+                >
+                    <div id="form-instructions" class="sr-only">
+                        Enter your username and password to access the photo maker application
+                    </div>
+                    
+                    <!-- Username Field -->
+                    <div class="input-field">
+                        <label for="username">Username</label>
+                        <input 
+                            type="text" 
+                            id="username"
+                            name="username" 
+                            required 
+                            autocomplete="username"
+                            aria-describedby="username-error username-help"
+                            aria-invalid="false"
+                            placeholder="Enter your username"
+                            maxlength="50"
+                            spellcheck="false"
+                            autocapitalize="none"
+                        >
+                        <div id="username-help" class="sr-only">
+                            Enter the username provided by your administrator
+                        </div>
+                        <div 
+                            id="username-error" 
+                            class="input-error sr-only" 
+                            aria-live="polite"
+                        ></div>
+                    </div>
+                    
+                    <!-- Password Field -->
+                    <div class="input-field">
+                        <label for="password">Password</label>
+                        <div class="password-wrapper">
+                            <input 
+                                type="password" 
+                                id="password"
+                                name="password" 
+                                required 
+                                autocomplete="current-password"
+                                aria-describedby="password-error password-help"
+                                aria-invalid="false"
+                                placeholder="Enter your password"
+                                maxlength="100"
+                                spellcheck="false"
+                                autocapitalize="none"
+                            >
+                            <button 
+                                type="button" 
+                                class="password-toggle"
+                                aria-label="Show password"
+                                title="Toggle password visibility"
+                                tabindex="-1"
+                            >
+                                <span class="toggle-icon" aria-hidden="true">👁️</span>
+                            </button>
+                        </div>
+                        <div id="password-help" class="sr-only">
+                            Enter the password provided by your administrator
+                        </div>
+                        <div 
+                            id="password-error" 
+                            class="input-error sr-only" 
+                            aria-live="polite"
+                        ></div>
+                    </div>
+                    
+                    <!-- Security Note -->
+                    <div class="security-note">
+                        <span class="security-icon" aria-hidden="true">🔒</span>
+                        <small>Your connection is secure and encrypted</small>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <button 
+                        type="submit" 
+                        class="glassmorphic-btn login-submit"
+                        aria-label="Sign in to your account"
+                        id="submitBtn"
+                    >
+                        <div class="btn-content">
+                            <span class="btn-icon" aria-hidden="true">🔑</span>
+                            <span class="btn-text">Sign In</span>
+                            <span class="btn-spinner" aria-hidden="true" style="display: none;">⏳</span>
+                        </div>
+                        <div class="btn-glow"></div>
+                    </button>
+                </form>
+                
+                <!-- Additional Info -->
+                <footer class="login-footer">
+                    <div class="login-info">
+                        <p class="info-text">
+                            <span class="info-icon" aria-hidden="true">ℹ️</span>
+                            Need access? Contact your system administrator
+                        </p>
+                    </div>
+                    
+                    <!-- Accessibility Features -->
+                    <div class="accessibility-features">
+                        <details class="help-details">
+                            <summary class="help-summary">
+                                <span class="help-icon" aria-hidden="true">♿</span>
+                                Accessibility Help
+                            </summary>
+                            <div class="help-content">
+                                <ul class="help-list">
+                                    <li>Use <kbd>Tab</kbd> to navigate between form fields</li>
+                                    <li>Use <kbd>Enter</kbd> to submit the form</li>
+                                    <li>Use <kbd>Space</kbd> to toggle theme switch</li>
+                                    <li>Screen reader support is fully enabled</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+                </footer>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notifications Container -->
+    <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Login Enhancement Styles -->
+    <style>
+        /* Login-specific enhancements */
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: var(--spacing-sm);
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            padding: var(--spacing-xs);
+            border-radius: 4px;
+            transition: all 0.2s var(--ease);
+            z-index: 2;
+        }
+        
+        .password-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+        }
+        
+        .password-toggle:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        
+        .toggle-icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+        
+        .security-note {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            color: var(--muted);
+            font-size: 0.8125rem;
+            margin: var(--spacing-sm) 0;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: rgba(79, 140, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid var(--accent);
+        }
+        
+        .login-submit {
+            width: 100%;
+            margin-top: var(--spacing-md);
+        }
+        
+        .login-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .login-submit.loading .btn-text {
+            opacity: 0.7;
+        }
+        
+        .login-submit.loading .btn-spinner {
+            display: inline !important;
+        }
+        
+        .login-footer {
+            margin-top: var(--spacing-lg);
+            padding-top: var(--spacing-md);
+            border-top: 1px solid var(--border);
+        }
+        
+        .login-info {
+            text-align: center;
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .info-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            color: var(--muted);
+            font-size: 0.8125rem;
+        }
+        
+        .accessibility-features {
+            margin-top: var(--spacing-md);
+        }
+        
+        .help-details {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        
+        .help-summary {
+            padding: var(--spacing-sm) var(--spacing-md);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            font-size: 0.8125rem;
+            color: var(--muted);
+            user-select: none;
+        }
+        
+        .help-summary:hover {
+            color: var(--text);
+        }
+        
+        .help-content {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-top: 1px solid var(--border);
+        }
+        
+        .help-list {
+            list-style: none;
+            font-size: 0.75rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+        
+        .help-list li {
+            margin-bottom: var(--spacing-xs);
+            padding-left: var(--spacing-md);
+            position: relative;
+        }
+        
+        .help-list li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+        }
+        
+        kbd {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.7rem;
+            font-family: monospace;
+        }
+        
+        .input-error {
+            color: var(--bad);
+            font-size: 0.75rem;
+            margin-top: var(--spacing-xs);
+            padding: var(--spacing-xs);
+            background: rgba(255, 92, 92, 0.1);
+            border-radius: 4px;
+            border-left: 3px solid var(--bad);
+        }
+        
+        .input-error:not(.sr-only) {
+            display: block;
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .login-glass-card {
+                margin: var(--spacing-sm);
+            }
+            
+            .help-content {
+                font-size: 0.8125rem;
+            }
+            
+            .security-note {
+                font-size: 0.75rem;
+            }
+        }
+        
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            .dynamic-logo-bg {
+                animation: none;
+            }
+        }
+        
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .login-glass-card {
+                border: 2px solid var(--text);
+                background: var(--bg);
+            }
+            
+            .security-note {
+                border: 1px solid var(--accent);
+            }
+        }
+    </style>
 </body>
 </html>
