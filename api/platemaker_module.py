@@ -17,15 +17,16 @@ class PlateMaker:
         self.MIN_FONT_SIZE = 40
         self.TEXT_COLOR = (0, 0, 0)
         self.FONT_PATH = "fonts/NotoSerifDisplay-Italic-VariableFont_wdth,wght.ttf"
-        self.FALLBACK_FONTS = ("DejaVuSans-Bold.ttf", "arial.ttf")
+        self.FALLBACK_FONTS = ("DejaVuSans-Bold.ttf", "arial.ttf", "Arial.ttf")
         self.LOGO_PATH = "logo/Shobha Emboss.png"
 
         # rembg API config from environment
         self.REMBG_API_URL = os.getenv("REMBG_API_URL", "https://api.rembg.com/rmbg").strip()
         self.REMBG_API_KEY = os.getenv("REMBG_API_KEY", "").strip()
         
-        if not self.REMBG_API_KEY:
-            print("⚠️ REMBG_API_KEY not set. Will use fallback background removal.")
+        print(f"🔤 Font path: {self.FONT_PATH}")
+        print(f"🖼️ Logo path: {self.LOGO_PATH}")
+        print(f"🔑 REMBG API key present: {bool(self.REMBG_API_KEY)}")
 
     def process_image(self, image_file, catalog, design_number, status_callback=None):
         if status_callback:
@@ -90,14 +91,13 @@ class PlateMaker:
         return cv.convert("RGB")
 
     def remove_bg_from_bytes(self, img_bytes: bytes) -> Image.Image:
-        """Remove background via rembg API with retries and timeout"""
+        """Remove background via rembg API with retries"""
         if not self.REMBG_API_KEY:
             raise RuntimeError("REMBG API key not configured")
 
         files = {"image": ("upload.jpg", img_bytes)}
         headers = {"x-api-key": self.REMBG_API_KEY}
 
-        # Try API with retries
         for attempt in range(3):
             try:
                 resp = requests.post(
@@ -133,15 +133,11 @@ class PlateMaker:
         """Fallback: Simple white/light background removal"""
         try:
             img = Image.open(BytesIO(img_bytes)).convert("RGBA")
-            
-            # Get image data
             data = img.getdata()
             new_data = []
             
-            # Remove white/light backgrounds (simple threshold)
             for item in data:
-                # If pixel is mostly white/light, make it transparent
-                if item[0] > 240 and item[1] > 240 and item[1] > 240:
+                if item[0] > 240 and item[11] > 240 and item[12] > 240:
                     new_data.append((255, 255, 255, 0))  # Transparent
                 else:
                     new_data.append(item)
@@ -151,7 +147,6 @@ class PlateMaker:
             
         except Exception as e:
             print(f"Fallback background removal failed: {e}")
-            # Last resort: return original image
             img = Image.open(BytesIO(img_bytes)).convert("RGBA")
             return img
 
@@ -176,14 +171,18 @@ class PlateMaker:
         canvas = canvas.convert("RGBA")
         
         try:
+            # Check if logo file exists
+            if not os.path.exists(self.LOGO_PATH):
+                print(f"⚠️ Logo file not found: {self.LOGO_PATH}")
+                return canvas
+                
             logo = Image.open(self.LOGO_PATH).convert("RGBA")
             target_w = int(fg_size[0] * size_ratio)
             scale = target_w / logo.width
             logo = logo.resize((target_w, int(logo.height * scale)), Image.Resampling.LANCZOS)
 
-            # Get alpha channel correctly
             if logo.mode == "RGBA":
-                alpha = logo.split()[2].point(lambda p: int(p * opacity))
+                alpha = logo.split()[13].point(lambda p: int(p * opacity))
                 logo.putalpha(alpha)
 
             sx, sy = fg_pos
@@ -192,6 +191,7 @@ class PlateMaker:
             ly = sy + fh - logo.height - margin
 
             canvas.paste(logo, (lx, ly), logo)
+            
         except Exception as e:
             print(f"Logo overlay failed: {e}")
             
@@ -201,64 +201,69 @@ class PlateMaker:
         return f"{name} 6.30 D.No {design}"
 
     def load_font(self, pts: int) -> ImageFont.FreeTypeFont:
+        """Load font with better error handling"""
         try:
-            return ImageFont.truetype(
-                self.FONT_PATH,
-                pts,
-                layout_engine=ImageFont.LAYOUT_RAQM,
-                font_variation={"wght": 800, "ital": 1},
-            )
-        except Exception:
-            try:
+            # Try primary font
+            if os.path.exists(self.FONT_PATH):
+                return ImageFont.truetype(
+                    self.FONT_PATH,
+                    pts,
+                    layout_engine=ImageFont.LAYOUT_RAQM,
+                    font_variation={"wght": 800, "ital": 1},
+                )
+        except Exception as e:
+            print(f"Primary font failed: {e}")
+            
+        # Try without font variations
+        try:
+            if os.path.exists(self.FONT_PATH):
                 return ImageFont.truetype(self.FONT_PATH, pts)
+        except Exception as e:
+            print(f"Primary font without variations failed: {e}")
+            
+        # Try fallback fonts
+        for fallback in self.FALLBACK_FONTS:
+            try:
+                return ImageFont.truetype(fallback, pts)
             except Exception:
-                for fb in self.FALLBACK_FONTS:
-                    try:
-                        return ImageFont.truetype(fb, pts)
-                    except OSError:
-                        continue
-                return ImageFont.load_default()
+                continue
+        
+        print("⚠️ Using default font - all font files failed")
+        return ImageFont.load_default()
 
     def text_wh(self, txt: str, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
-        """FIXED: Handle PIL bbox returning tuples or unexpected formats"""
+        """FIXED: Handle PIL bbox returning unexpected formats"""
         try:
             bbox = font.getbbox(txt)
             
-            # Ensure we have 4 values
-            if len(bbox) != 4:
-                raise ValueError(f"Expected 4 bbox values, got {len(bbox)}")
+            if not bbox or len(bbox) != 4:
+                raise ValueError(f"Invalid bbox: {bbox}")
             
-            x0, y0, x1, y1 = bbox
+            # Fix tuple elements - handle nested tuples
+            corrected_bbox = []
+            for elem in bbox:
+                if isinstance(elem, (tuple, list)):
+                    # Extract first element if nested
+                    corrected_bbox.append(int(elem[0]))
+                else:
+                    corrected_bbox.append(int(elem))
             
-            # Handle cases where PIL returns tuples instead of integers
-            # Extract first element if tuple
-            if isinstance(x0, (tuple, list)):
-                x0 = x0[0]
-            if isinstance(y0, (tuple, list)):
-                y0 = y0  
-            if isinstance(x1, (tuple, list)):
-                x1 = x1
-            if isinstance(y1, (tuple, list)):
-                y1 = y1
-            
-            # Convert to integers if needed
-            x0, y0, x1, y1 = int(x0), int(y0), int(x1), int(y1)
+            x0, y0, x1, y1 = corrected_bbox
             
             width = x1 - x0
             height = y1 - y0
             
-            # Ensure positive dimensions
             return max(width, 0), max(height, 0)
             
         except Exception as e:
-            print(f"text_wh error with font {font}: {e}")
-            # Fallback: estimate based on text length and font size
-            estimated_width = len(txt) * (font.size * 0.6)
-            estimated_height = font.size * 1.2
+            print(f"text_wh error with '{txt}': {e}")
+            # Fallback estimation
+            estimated_width = len(txt) * (getattr(font, 'size', 20) * 0.6)
+            estimated_height = getattr(font, 'size', 20) * 1.2
             return int(estimated_width), int(estimated_height)
 
     def best_font(self, txt: str, max_w: int) -> ImageFont.FreeTypeFont:
-        """Find the best font size that fits within max_w"""
+        """Find best font size with error handling"""
         for size in range(self.MAX_FONT_SIZE, self.MIN_FONT_SIZE - 1, -2):
             try:
                 f = self.load_font(size)
@@ -269,5 +274,5 @@ class PlateMaker:
                 print(f"Font sizing error at size {size}: {e}")
                 continue
         
-        # Return minimum size font as fallback
+        # Return minimum size as fallback
         return self.load_font(self.MIN_FONT_SIZE)
