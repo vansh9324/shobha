@@ -307,60 +307,75 @@ class PhotoMakerUI {
     }
   }
   
-  async handleSubmit(e) {
+  // Replace the handleSubmit method in your existing app.js:
+
+async handleSubmit(e) {
     e.preventDefault();
-    
     if (this.isProcessing) return;
+
     if (!this.items.length) {
-      this.showToast('No images to process', 'bad');
-      return;
+        this.showToast('No images to process', 'bad');
+        return;
     }
-    
+
     const catalogSelect = this.elements.form.querySelector('select[name="catalog"]');
     if (!catalogSelect.value) {
-      this.showToast('Please select a catalog', 'bad');
-      return;
+        this.showToast('Please select a catalog', 'bad');
+        return;
     }
-    
+
     this.isProcessing = true;
     
     try {
-      const formData = new FormData();
-      formData.append('catalog', catalogSelect.value);
-      
-      const mapping = this.items.map((item, index) => ({
-        index,
-        design_number: item.design || `Design_${index + 1}`
-      }));
-      formData.append('mapping', JSON.stringify(mapping));
-      
-      this.items.forEach(item => formData.append('files', item.file));
-      
-      this.showProgress();
-      
-      const response = await fetch('/upload', { 
-        method: 'POST', 
-        body: formData 
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        this.displayResults(data);
-        const successCount = data.results.filter(r => r.status === 'success').length;
-        this.showToast(`Successfully processed ${successCount} images`, 'good');
-      } else {
-        this.showToast(data.error || 'Upload failed', 'bad');
-      }
+        const formData = new FormData();
+        formData.append('catalog', catalogSelect.value);
+        
+        const mapping = this.items.map((item, index) => ({
+            index,
+            design_number: item.design || `Design_${index + 1}`
+        }));
+        formData.append('mapping', JSON.stringify(mapping));
+        
+        this.items.forEach(item => formData.append('files', item.file));
+        
+        this.showProgress();
+        
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            this.displayResults(data);
+            const successCount = data.results.filter(r => r.status === 'success').length;
+            const errorCount = data.results.filter(r => r.status === 'error').length;
+            
+            if (successCount > 0) {
+                this.showToast(`Successfully processed ${successCount} images`, 'good');
+            }
+            if (errorCount > 0) {
+                this.showToast(`${errorCount} images failed to process`, 'bad');
+            }
+        } else {
+            // Handle authentication errors
+            if (response.status === 401) {
+                this.showToast('Session expired. Redirecting to login...', 'bad');
+                setTimeout(() => window.location.href = '/login', 2000);
+            } else {
+                this.showToast(data.error || 'Upload failed', 'bad');
+            }
+        }
     } catch(error) {
-      this.showToast('Network error occurred', 'bad');
-      console.error('Upload error:', error);
+        this.showToast('Network error occurred. Please check your connection.', 'bad');
+        console.error('Upload error:', error);
     } finally {
-      this.isProcessing = false;
-      // Progress bar will hide automatically
+        this.isProcessing = false;
+        this.hideProgress(); // Always hide progress
     }
-  }
-  
+}
+
   // ========== FILE MANAGEMENT ==========
   addFiles(files) {
     const validFiles = files.filter(f => f && f.type && f.type.startsWith('image/'));
@@ -534,13 +549,12 @@ class PhotoMakerUI {
     }
   }
   
-  hideProgress() {
+  // Also update the hideProgress method:
+hideProgress() {
     const { progressContainer, processBtn } = this.elements;
     if (progressContainer && processBtn) {
-      setTimeout(() => {
         progressContainer.style.display = 'none';
         processBtn.style.display = 'block';
-      }, 1000);
     }
   }
   
