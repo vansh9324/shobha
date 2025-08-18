@@ -3,8 +3,8 @@ import json
 import os
 import secrets
 from datetime import timedelta, datetime
-
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException
@@ -14,7 +14,6 @@ from starlette.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse
 
-# IMPORTANT: import via package path after moving files under api/
 from api.platemaker_module import PlateMaker
 from api.google_drive_uploader import DriveUploader
 
@@ -25,7 +24,6 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "change-this")
-
 SESSION_SECRET = os.getenv("SESSION_SECRET", secrets.token_hex(32))
 SESSION_COOKIE_NAME = "admin_session"
 SESSION_MAX_AGE_MIN = int(os.getenv("SESSION_MAX_AGE_MIN", "60"))
@@ -33,7 +31,6 @@ SESSION_MAX_AGE_MIN = int(os.getenv("SESSION_MAX_AGE_MIN", "60"))
 # ---------------- FASTAPI ----------------
 app = FastAPI()
 
-# Static and Templates must use absolute paths in serverless
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
@@ -47,7 +44,6 @@ app.add_middleware(
     max_age=SESSION_MAX_AGE_MIN * 60,
 )
 
-# Defer heavy client init to startup, not at import time
 platemaker = PlateMaker()
 drive_uploader = None
 
@@ -74,17 +70,24 @@ def login_user(request: Request):
 def logout_user(request: Request):
     request.session.clear()
 
-def touch_session(request: Request):
+def touch_session(request: Request) -> bool:
+    """Fixed session management - returns bool for auth status"""
+    if not request.session.get("auth"):
+        return False
+    
     last = request.session.get("last_seen")
     if last:
         try:
             last_dt = datetime.fromisoformat(last)
             if datetime.utcnow() - last_dt > timedelta(minutes=SESSION_MAX_AGE_MIN):
                 request.session.clear()
-                return
+                return False
         except Exception:
-            pass
+            request.session.clear()
+            return False
+    
     request.session["last_seen"] = datetime.utcnow().isoformat()
+    return True
 
 # ------------- ROUTES: AUTH -------------
 @app.get("/login", response_class=HTMLResponse)
@@ -100,6 +103,7 @@ async def login_submit(
     password: str = Form(...)
 ):
     expects_json = "application/json" in (request.headers.get("accept") or "").lower()
+    
     if not (username == ADMIN_USERNAME and password == ADMIN_PASSWORD):
         if expects_json:
             return JSONResponse({"ok": False, "error": "Invalid credentials"}, status_code=401)
@@ -108,6 +112,7 @@ async def login_submit(
             {"request": request, "error": "Invalid credentials"},
             status_code=401
         )
+
     login_user(request)
     if expects_json:
         return JSONResponse({"ok": True})
@@ -121,17 +126,34 @@ async def logout(request: Request):
 # ------------- ROUTES: PAGES -------------
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
-    touch_session(request)
-    if not is_authenticated(request):
+    if not touch_session(request):
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("landing.html", {"request": request})
 
 @app.get("/app", response_class=HTMLResponse)
 async def app_view(request: Request):
-    touch_session(request)
-    if not is_authenticated(request):
+    if not touch_session(request):
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("index.html", {"request": request, "catalogs": catalog_options})
+
+# ------------- DEBUG ENDPOINT -------------
+@app.get("/debug")
+async def debug_info(request: Request):
+    return {
+        "session": {
+            "auth": request.session.get("auth", False),
+            "last_seen": request.session.get("last_seen", "none")
+        },
+        "env_vars": {
+            "admin_username": bool(ADMIN_USERNAME),
+            "admin_password": bool(ADMIN_PASSWORD),
+            "session_secret": bool(SESSION_SECRET),
+            "rembg_url": bool(os.getenv("REMBG_API_URL")),
+            "rembg_key": bool(os.getenv("REMBG_API_KEY")),
+            "google_creds": bool(os.getenv("GOOGLE_APPLICATION_CREDENTIALS")),
+            "google_refresh": bool(os.getenv("GOOGLE_REFRESH_TOKEN")),
+        }
+    }
 
 # ------------- ROUTES: API -------------
 @app.post("/upload", response_class=JSONResponse)
@@ -141,51 +163,74 @@ async def upload_images(
     mapping: str = Form(...),
     files: list[UploadFile] = File(...)
 ):
-    touch_session(request)
-    if not is_authenticated(request):
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not touch_session(request):
+        raise HTTPException(status_code=401, detail="Session expired")
 
     try:
-        # mapping is a JSON array of { index, design_number }
         design_map = {
             int(item["index"]): (item.get("design_number", "") or "").strip()
             for item in json.loads(mapping)
         }
-    except Exception:
-        return JSONResponse({"error": "Invalid mapping payload"}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"error": f"Invalid mapping payload: {str(e)}"}, status_code=400)
 
     results = []
+    
     for idx, file in enumerate(files):
         try:
             img_bytes = await file.read()
             design_number = design_map.get(idx, "") or f"Design_{idx+1}"
+            
+            # Process image via PlateMaker with better error handling
+            try:
+                processed_img = platemaker.process_image(
+                    io.BytesIO(img_bytes), catalog, design_number
+                )
+            except Exception as e:
+                if "rembg" in str(e).lower() or "background removal" in str(e).lower():
+                    results.append({
+                        "filename": getattr(file, "filename", f"image_{idx+1}"),
+                        "status": "error",
+                        "error": "Background removal service unavailable. Please try again later.",
+                        "design_number": design_number
+                    })
+                else:
+                    results.append({
+                        "filename": getattr(file, "filename", f"image_{idx+1}"),
+                        "status": "error", 
+                        "error": f"Image processing failed: {str(e)[:100]}",
+                        "design_number": design_number
+                    })
+                continue
 
-            # Process image via PlateMaker
-            processed_img = platemaker.process_image(
-                io.BytesIO(img_bytes), catalog, design_number
-            )
-
-            # Serialize to JPEG for upload
+            # Upload to Drive
             output_filename = f"{catalog} - {design_number}.jpg"
             img_out_bytes = io.BytesIO()
             processed_img.save(img_out_bytes, format="JPEG", quality=100)
             img_out_bytes.seek(0)
 
-            # Upload to Drive
-            url = drive_uploader.upload_image(img_out_bytes, output_filename, catalog)
+            try:
+                url = drive_uploader.upload_image(img_out_bytes, output_filename, catalog)
+                results.append({
+                    "filename": output_filename,
+                    "url": url,
+                    "status": "success",
+                    "design_number": design_number
+                })
+            except Exception as e:
+                results.append({
+                    "filename": output_filename,
+                    "status": "error",
+                    "error": f"Google Drive upload failed: {str(e)[:100]}",
+                    "design_number": design_number
+                })
 
-            results.append({
-                "filename": output_filename,
-                "url": url,
-                "status": "success",
-                "design_number": design_number
-            })
         except Exception as e:
             results.append({
                 "filename": getattr(file, "filename", f"image_{idx+1}"),
                 "url": None,
                 "status": "error",
-                "error": str(e)
+                "error": f"File processing error: {str(e)[:100]}"
             })
 
     return JSONResponse({"results": results, "catalog": catalog})
