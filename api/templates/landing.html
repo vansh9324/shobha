@@ -1,37 +1,508 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Shobha Sarees — Landing</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="/static/styles.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>Shobha Sarees - Professional Photo Processing</title>
+    <meta name="description" content="Transform your saree photos with professional processing. Upload, enhance, and organize your catalog with Shobha Sarees Photo Maker.">
+    <link rel="stylesheet" href="/static/styles.css">
+    <script defer src="/static/global.js"></script>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/static/logo.png" as="image">
+    <link rel="preload" href="/static/logo-red.png" as="image">
+    
+    <!-- PWA Support -->
+    <meta name="theme-color" content="#4f8cff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Shobha Sarees">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Shobha Sarees - Professional Photo Processing">
+    <meta property="og:description" content="Transform your saree photos with professional processing">
+    <meta property="og:type" content="website">
+    
+    <!-- Performance optimizations -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
 </head>
 <body class="theme">
+    <!-- Skip Navigation for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  {% include '_navbar.html' %}
+    <!-- Primary Navigation -->
+    <nav class="navbar glass" role="navigation" aria-label="Primary navigation">
+        <div class="nav-left">
+            <button 
+                id="globalHamburger" 
+                class="nav-hamburger" 
+                aria-controls="glassmorphicSidebar" 
+                aria-expanded="false" 
+                aria-label="Toggle navigation menu"
+                title="Open menu"
+            >
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </button>
+            
+            <a href="/" class="nav-brand" aria-label="Shobha Sarees home page" aria-current="page">
+                <img 
+                    src="/static/logo.png" 
+                    alt="Shobha Sarees logo" 
+                    class="nav-logo" 
+                    id="navLogo"
+                    width="32" 
+                    height="32"
+                >
+                <span class="nav-title">Shobha Sarees</span>
+            </a>
+        </div>
+        
+        <div class="nav-right">
+            <button 
+                id="themeSwitchGlobal" 
+                class="theme-switch" 
+                role="switch" 
+                aria-checked="false" 
+                aria-label="Toggle between light and dark theme"
+                title="Switch theme"
+            >
+                <div class="switch-track">
+                    <span class="switch-icon" aria-hidden="true">🌙</span>
+                    <span class="switch-icon" aria-hidden="true">☀️</span>
+                    <div class="switch-thumb"></div>
+                </div>
+            </button>
+        </div>
+    </nav>
 
-  <!-- Rich Gradient Landing Hero -->
-  <section class="landing-hero-rich">
-    <div class="rich-gradient-bg"></div>
-    <div class="landing-content-rich glass hero-card">
-      <div class="hero-glow"></div>
-      <h1 class="landing-title-rich gradient-text">Welcome back</h1>
-      <p class="landing-subtitle-rich">Prepare, brand, and deliver collections with precision.</p>
-      <a class="primary-cta-rich glassmorphic-btn sheen" href="/app">
-        <span>Open Photo Maker</span>
-        <div class="btn-glow"></div>
-      </a>
-    </div>
-    <div class="floating-elements">
-      <div class="float-element element-1"></div>
-      <div class="float-element element-2"></div>
-      <div class="float-element element-3"></div>
-    </div>
-  </section>
+    <!-- Sidebar Navigation -->
+    <aside 
+        class="glassmorphic-sidebar glass" 
+        id="glassmorphicSidebar" 
+        role="navigation" 
+        aria-label="Secondary navigation" 
+        aria-hidden="true"
+    >
+        <div class="sidebar-header-improved">
+            <div class="sidebar-logo-container">
+                <img 
+                    src="/static/logo.png" 
+                    alt="Shobha Sarees logo" 
+                    class="sidebar-logo-improved" 
+                    id="sidebarLogo"
+                    width="48" 
+                    height="48"
+                >
+            </div>
+            <div class="sidebar-brand">
+                <h2 class="brand-name">Shobha Sarees</h2>
+                <p class="brand-subtitle">Photo Maker</p>
+            </div>
+        </div>
+        
+        <nav class="sidebar-navigation" role="navigation" aria-label="Application sections">
+            <a href="/" class="nav-item" aria-current="page" aria-label="Home page">
+                <span class="nav-icon" aria-hidden="true">🏠</span>
+                <span class="nav-text">Home</span>
+            </a>
+            <a href="/app" class="nav-item" aria-label="Photo maker application">
+                <span class="nav-icon" aria-hidden="true">📸</span>
+                <span class="nav-text">Photo Maker</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <form method="post" action="/logout">
+                <button 
+                    type="submit" 
+                    class="logout-btn-improved"
+                    aria-label="Sign out of your account"
+                    title="Sign out"
+                >
+                    <span class="nav-icon" aria-hidden="true">🚪</span>
+                    <span class="nav-text">Logout</span>
+                </button>
+            </form>
+        </div>
+    </aside>
 
-  {% include '_sidebar_menu.html' %}
-  <div id="toastHost" class="toast-host"></div>
-  <script src="/static/global.js"></script>
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+
+    <!-- Main Landing Content -->
+    <main 
+        id="main-content" 
+        role="main" 
+        tabindex="-1" 
+        class="landing-hero-rich"
+        aria-label="Shobha Sarees Photo Maker home page"
+    >
+        <!-- Animated Background -->
+        <div class="rich-gradient-bg" aria-hidden="true"></div>
+        
+        <!-- Floating Elements -->
+        <div class="floating-elements" aria-hidden="true">
+            <div class="float-element element-1"></div>
+            <div class="float-element element-2"></div>
+            <div class="float-element element-3"></div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="landing-content-rich">
+            <div class="hero-glow" aria-hidden="true"></div>
+            
+            <!-- Page Header -->
+            <header class="landing-header">
+                <h1 class="landing-title-rich">
+                    <span class="gradient-text">Transform Your</span><br>
+                    <span class="gradient-text">Saree Photos</span>
+                </h1>
+                <p class="landing-subtitle-rich">
+                    Professional photo processing with automated background removal, 
+                    branding, and cloud storage. Perfect for catalog creation.
+                </p>
+            </header>
+            
+            <!-- Feature Highlights -->
+            <section class="features-preview" aria-label="Key features">
+                <div class="features-grid">
+                    <div class="feature-card glass">
+                        <div class="feature-icon" aria-hidden="true">🎭</div>
+                        <h3 class="feature-title">Smart Background Removal</h3>
+                        <p class="feature-desc">AI-powered background removal with manual fallback</p>
+                    </div>
+                    
+                    <div class="feature-card glass">
+                        <div class="feature-icon" aria-hidden="true">🏷️</div>
+                        <h3 class="feature-title">Auto Branding</h3>
+                        <p class="feature-desc">Automatic logo placement and professional formatting</p>
+                    </div>
+                    
+                    <div class="feature-card glass">
+                        <div class="feature-icon" aria-hidden="true">☁️</div>
+                        <h3 class="feature-title">Cloud Storage</h3>
+                        <p class="feature-desc">Direct upload to Google Drive with organized folders</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Call to Action -->
+            <div class="cta-section">
+                <a 
+                    href="/app" 
+                    class="cta-button glassmorphic-btn"
+                    aria-label="Start using the photo maker"
+                >
+                    <div class="btn-content">
+                        <span class="btn-icon" aria-hidden="true">🚀</span>
+                        <span>Start Processing Photos</span>
+                    </div>
+                    <div class="btn-glow"></div>
+                </a>
+                
+                <p class="cta-subtext">
+                    Upload up to 10 images at once • Max 15MB total
+                </p>
+            </div>
+            
+            <!-- Stats/Benefits -->
+            <section class="benefits-section" aria-label="Benefits">
+                <div class="benefits-grid">
+                    <div class="benefit-item">
+                        <div class="benefit-number">10</div>
+                        <div class="benefit-label">Files per batch</div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-number">85%</div>
+                        <div class="benefit-label">Compression savings</div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-number">3s</div>
+                        <div class="benefit-label">Avg processing time</div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-number">100%</div>
+                        <div class="benefit-label">Automated workflow</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Quick Start Guide -->
+        <section class="quick-start glass" aria-label="How to use">
+            <div class="quick-start-content">
+                <h2 class="quick-start-title">How it works</h2>
+                <div class="steps-grid">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <h3 class="step-title">Select Catalog</h3>
+                        <p class="step-desc">Choose which catalog your photos belong to</p>
+                    </div>
+                    
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <h3 class="step-title">Upload Images</h3>
+                        <p class="step-desc">Drop or select up to 10 saree photos</p>
+                    </div>
+                    
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <h3 class="step-title">Add Design Numbers</h3>
+                        <p class="step-desc">Label each image with design numbers</p>
+                    </div>
+                    
+                    <div class="step-item">
+                        <div class="step-number">4</div>
+                        <h3 class="step-title">Process & Upload</h3>
+                        <p class="step-desc">Automated processing and cloud storage</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Notifications Container -->
+    <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Landing Page Specific Styles -->
+    <style>
+        /* Landing Page Enhancements */
+        .landing-header {
+            margin-bottom: var(--spacing-xl);
+        }
+        
+        .features-preview {
+            margin: var(--spacing-xl) 0;
+        }
+        
+        .features-grid {
+            display: grid;
+            gap: var(--spacing-lg);
+            grid-template-columns: 1fr;
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        @media (min-width: 768px) {
+            .features-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        .feature-card {
+            padding: var(--spacing-lg);
+            border-radius: 16px;
+            text-align: center;
+            transition: all 0.3s var(--ease);
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(79, 140, 255, 0.15);
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: var(--spacing-md);
+            display: block;
+        }
+        
+        .feature-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+            color: var(--text);
+        }
+        
+        .feature-desc {
+            font-size: 0.875rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+        
+        .cta-section {
+            text-align: center;
+            margin: var(--spacing-xl) 0;
+        }
+        
+        .cta-button {
+            font-size: 1.125rem;
+            padding: var(--spacing-lg) var(--spacing-xl);
+            margin-bottom: var(--spacing-md);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .cta-subtext {
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+        
+        .benefits-section {
+            margin: var(--spacing-xl) 0;
+        }
+        
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--spacing-lg);
+        }
+        
+        @media (min-width: 768px) {
+            .benefits-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        .benefit-item {
+            text-align: center;
+        }
+        
+        .benefit-number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--accent);
+            margin-bottom: var(--spacing-xs);
+        }
+        
+        .benefit-label {
+            font-size: 0.8125rem;
+            color: var(--muted);
+            font-weight: 500;
+        }
+        
+        .quick-start {
+            margin: var(--spacing-xl) auto;
+            padding: var(--spacing-xl);
+            max-width: 800px;
+            border-radius: 20px;
+        }
+        
+        .quick-start-title {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: var(--spacing-xl);
+            color: var(--text);
+        }
+        
+        .steps-grid {
+            display: grid;
+            gap: var(--spacing-lg);
+            grid-template-columns: 1fr;
+        }
+        
+        @media (min-width: 768px) {
+            .steps-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .steps-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        .step-item {
+            text-align: center;
+            position: relative;
+        }
+        
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            margin: 0 auto var(--spacing-sm);
+            font-size: 1.125rem;
+        }
+        
+        .step-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+            color: var(--text);
+        }
+        
+        .step-desc {
+            font-size: 0.8125rem;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .landing-content-rich {
+                padding: var(--spacing-lg) var(--spacing-md);
+            }
+            
+            .features-grid,
+            .benefits-grid,
+            .steps-grid {
+                gap: var(--spacing-md);
+            }
+            
+            .feature-card {
+                padding: var(--spacing-md);
+            }
+            
+            .quick-start {
+                margin: var(--spacing-lg) var(--spacing-sm);
+                padding: var(--spacing-lg) var(--spacing-md);
+            }
+            
+            .cta-button {
+                font-size: 1rem;
+                padding: var(--spacing-md) var(--spacing-lg);
+            }
+            
+            .benefit-number {
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Animation enhancements */
+        .feature-card,
+        .step-item,
+        .benefit-item {
+            animation: fadeInUp 0.6s var(--ease) forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .feature-card:nth-child(1) { animation-delay: 0.1s; }
+        .feature-card:nth-child(2) { animation-delay: 0.2s; }
+        .feature-card:nth-child(3) { animation-delay: 0.3s; }
+        
+        .step-item:nth-child(1) { animation-delay: 0.1s; }
+        .step-item:nth-child(2) { animation-delay: 0.2s; }
+        .step-item:nth-child(3) { animation-delay: 0.3s; }
+        .step-item:nth-child(4) { animation-delay: 0.4s; }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            .feature-card,
+            .step-item,
+            .benefit-item {
+                animation: none;
+                opacity: 1;
+                transform: none;
+            }
+        }
+    </style>
 </body>
 </html>
