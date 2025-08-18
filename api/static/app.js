@@ -177,46 +177,57 @@ class PhotoMakerUI {
     });
   }
   
-  // ========== DROPZONE MANAGEMENT ==========
-  initDropzone() {
+// ========== DROPZONE MANAGEMENT ========== 
+initDropzone() {
     const { dropzone, fileInput } = this.elements;
     if (!dropzone || !fileInput) return;
-    
+
     // Prevent default drag behaviors
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropzone.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
     });
-    
+
     // Visual feedback
     ['dragenter', 'dragover'].forEach(eventName => {
-      dropzone.addEventListener(eventName, () => {
-        dropzone.classList.add('drag');
-      });
+        dropzone.addEventListener(eventName, () => {
+            dropzone.classList.add('drag');
+        });
     });
-    
+
     ['dragleave', 'drop'].forEach(eventName => {
-      dropzone.addEventListener(eventName, () => {
-        dropzone.classList.remove('drag');
-      });
+        dropzone.addEventListener(eventName, () => {
+            dropzone.classList.remove('drag');
+        });
     });
-    
+
     // Handle drop
     dropzone.addEventListener('drop', (e) => {
-      const files = Array.from(e.dataTransfer.files || []);
-      this.addFiles(files);
+        const files = Array.from(e.dataTransfer.files || []);
+        this.addFiles(files);
     });
-    
-    // Handle file input
+
+    // FIXED: Handle dropzone click to open file dialog
+    dropzone.addEventListener('click', (e) => {
+        // Don't trigger if clicking on the hidden file input itself
+        if (e.target !== fileInput) {
+            e.preventDefault();
+            fileInput.click();
+        }
+    });
+
+    // Handle file input change
     fileInput.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files || []);
-      this.addFiles(files);
-      e.target.value = ''; // Reset input
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
+            this.addFiles(files);
+            this.showToast(`Selected ${files.length} image${files.length > 1 ? 's' : ''}`, 'info');
+        }
+        e.target.value = ''; // Reset input
     });
-  }
-  
+}  
   // ========== CAMERA MANAGEMENT ==========
   initCamera() {
     const { openCameraBtn, captureBtn, closeCameraBtn } = this.elements;
