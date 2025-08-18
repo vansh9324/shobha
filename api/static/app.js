@@ -1,3 +1,42 @@
+async compressImage(file, maxSizeMB = 4, quality = 0.8) {
+    return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = () => {
+            // Calculate new dimensions to reduce file size
+            let { width, height } = img;
+            const maxDimension = 2000; // Max width/height
+            
+            if (width > maxDimension || height > maxDimension) {
+                const ratio = Math.min(maxDimension / width, maxDimension / height);
+                width *= ratio;
+                height *= ratio;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Draw and compress
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Convert to blob with quality compression
+            canvas.toBlob((blob) => {
+                const compressedFile = new File(
+                    [blob], 
+                    file.name.replace(/\.[^/.]+$/, '.jpg'), // Convert to JPG
+                    { type: 'image/jpeg', lastModified: Date.now() }
+                );
+                
+                console.log(`Compressed ${file.name}: ${(file.size/1024/1024).toFixed(2)}MB → ${(compressedFile.size/1024/1024).toFixed(2)}MB`);
+                resolve(compressedFile);
+            }, 'image/jpeg', quality);
+        };
+        
+        img.src = URL.createObjectURL(file);
+    });
+}
 // ========== OPTIMIZED PHOTO MAKER UI ==========
 class PhotoMakerUI {
   // Track last rendered count to append only new cards
@@ -388,32 +427,59 @@ async handleSubmit(e) {
 }
 
   // ========== FILE MANAGEMENT ==========
-  addFiles(files) {
-    const validFiles = files.filter(f => f && f.type && f.type.startsWith('image/'));
-    const uniqueFiles = this.dedupeFiles(validFiles);
-    if (!uniqueFiles.length) {
-      this.showToast('No new images added', 'info');
-      return;
+  async addFiles(files) {
+    const imageFiles = files.filter(f => f && f.type && f.type.startsWith('image/'));
+    
+    if (!imageFiles.length) {
+        this.showToast('No valid images selected', 'info');
+        return;
     }
-    // Create blob URL once per file
+
+    this.showToast('Processing images...', 'info');
+    
+    const processedFiles = [];
+    
+    for (const file of imageFiles) {
+        try {
+            let processedFile = file;
+            
+            // Check if file needs compression
+            const fileSizeMB = file.size / 1024 / 1024;
+            
+            if (fileSizeMB > 3) { // Compress files larger than 3MB
+                this.showToast(`Compressing ${file.name} (${fileSizeMB.toFixed(1)}MB)...`, 'info');
+                processedFile = await this.compressImage(file, 3.5, 0.85);
+            }
+            
+            processedFiles.push(processedFile);
+            
+        } catch (error) {
+            console.error(`Error processing ${file.name}:`, error);
+            this.showToast(`Failed to process ${file.name}`, 'bad');
+        }
+    }
+    
+    // Filter out duplicates
+    const uniqueFiles = this.dedupeFiles(processedFiles);
+    
+    if (!uniqueFiles.length) {
+        this.showToast('No new images to add', 'info');
+        return;
+    }
+
+    // Add to items
     uniqueFiles.forEach(file => {
-      this.items.push({
-        file,
-        id: this.idSeq++,
-        design: '',
-        url: URL.createObjectURL(file)
-      });
+        this.items.push({
+            file,
+            id: this.idSeq++,
+            design: '',
+            url: URL.createObjectURL(file)
+        });
     });
+
     this.showToast(`Added ${uniqueFiles.length} image${uniqueFiles.length > 1 ? 's' : ''}`, 'good');
     this.updateLayout();
-  }
-  
-  dedupeFiles(files) {
-    const existing = new Set(
-      this.items.map(item => `${item.file.name}|${item.file.size}|${item.file.lastModified}`)
-    );
-    return files.filter(f => !existing.has(`${f.name}|${f.size}|${f.lastModified}`));
-  }
+}
   
   clearAll() {
     // Revoke blob URLs to free memory and prevent churn
