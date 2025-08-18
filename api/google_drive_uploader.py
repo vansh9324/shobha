@@ -5,58 +5,58 @@ import json
 import datetime
 from typing import Optional
 
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
+try:
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseUpload
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
 
-# Same scope as before
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 class DriveUploader:
     def __init__(self):
-        # Use your existing main folder ID from original code
+        if not GOOGLE_AVAILABLE:
+            raise RuntimeError("Google API libraries not available")
+            
         self.main_folder_id = "1doyiFBYxHfdbLmqu2seRZJMbPH2940_z"
-
-        # Build service using client credentials + refresh token from env
-        self.service = self._authenticate()
-
-        print(f"✅ Connected to Shobha Sarees folder: {self.main_folder_id}")
+        
+        try:
+            self.service = self._authenticate()
+            print(f"✅ Google Drive connected to folder: {self.main_folder_id}")
+        except Exception as e:
+            print(f"❌ Google Drive authentication failed: {e}")
+            raise RuntimeError(f"Drive authentication failed: {e}")
 
     def _authenticate(self):
-        """
-        Non-interactive auth for serverless:
-        - Reads Installed OAuth client JSON from GOOGLE_APPLICATION_CREDENTIALS (env).
-        - Reads GOOGLE_REFRESH_TOKEN (env).
-        - Builds google.oauth2.credentials.Credentials directly and refreshes if needed.
-        """
         client_info_str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
         if not client_info_str:
-            raise RuntimeError("Missing GOOGLE_APPLICATION_CREDENTIALS env var.")
+            raise RuntimeError("GOOGLE_APPLICATION_CREDENTIALS missing")
 
         refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN", "").strip()
         if not refresh_token:
-            raise RuntimeError("Missing GOOGLE_REFRESH_TOKEN env var. Generate it once locally with the same client and scope.")
+            raise RuntimeError("GOOGLE_REFRESH_TOKEN missing")
 
         try:
             client_info = json.loads(client_info_str)
-        except Exception as e:
-            raise RuntimeError(f"GOOGLE_APPLICATION_CREDENTIALS is not valid JSON: {e}")
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid GOOGLE_APPLICATION_CREDENTIALS JSON: {e}")
 
-        # Extract client_id and client_secret from the 'installed' block
         if "installed" not in client_info:
-            raise RuntimeError("GOOGLE_APPLICATION_CREDENTIALS must contain an 'installed' client (OAuth client).")
+            raise RuntimeError("GOOGLE_APPLICATION_CREDENTIALS must contain 'installed' client")
+
         installed = client_info["installed"]
         client_id = installed.get("client_id")
         client_secret = installed.get("client_secret")
         token_uri = installed.get("token_uri", "https://oauth2.googleapis.com/token")
 
         if not client_id or not client_secret:
-            raise RuntimeError("Missing client_id/client_secret in GOOGLE_APPLICATION_CREDENTIALS.")
+            raise RuntimeError("Missing client_id/client_secret")
 
-        # Build non-interactive credentials with a refresh token
         creds = Credentials(
-            token=None,  # access token will be fetched via refresh
+            token=None,
             refresh_token=refresh_token,
             token_uri=token_uri,
             client_id=client_id,
@@ -64,26 +64,26 @@ class DriveUploader:
             scopes=SCOPES,
         )
 
-        # Refresh immediately to ensure we have a valid access token
-        creds.refresh(Request())
+        try:
+            creds.refresh(Request())
+        except Exception as e:
+            raise RuntimeError(f"Token refresh failed: {e}")
 
-        # Disable discovery cache (no disk writes)
         service = build('drive', 'v3', credentials=creds, cache_discovery=False)
         return service
 
     def get_or_create_folder(self, folder_name: str, parent_id: str) -> str:
-        """Get existing folder or create new one in specific parent."""
         query = (
             f"name='{folder_name}' and "
             f"mimeType='application/vnd.google-apps.folder' and "
             f"'{parent_id}' in parents and trashed = false"
         )
-
+        
         results = self.service.files().list(q=query, fields="files(id,name)").execute()
         folders = results.get('files', [])
-
+        
         if folders:
-            print(f"📁 Found existing folder: {folder_name}")
+            print(f"📁 Found folder: {folder_name}")
             return folders[0]['id']
         else:
             folder_metadata = {
@@ -92,47 +92,41 @@ class DriveUploader:
                 'parents': [parent_id]
             }
             folder = self.service.files().create(body=folder_metadata, fields="id,name").execute()
-            print(f"📁 Created new folder: {folder_name}")
+            print(f"📁 Created folder: {folder_name}")
             return folder.get('id')
 
     def upload_image(self, image_bytes: io.BytesIO, filename: str, catalog: Optional[str] = None) -> str:
-        """
-        Upload to specific catalog folder within Shobha Sarees
-        Structure: Shobha Sarees/{catalog}/{filename}
-        """
         try:
-            # Resolve target parent
             parent_id = self.main_folder_id
+            
             if catalog:
                 catalog_folder_id = self.get_or_create_folder(catalog, parent_id)
             else:
                 catalog_folder_id = parent_id
 
-            # Handle duplicates by renaming with timestamp
+            # Handle filename conflicts
             dup_query = f"name='{filename}' and '{catalog_folder_id}' in parents and trashed = false"
-            existing_files = self.service.files().list(q=dup_query, fields="files(id,name)").execute().get('files', [])
-            if existing_files:
+            existing = self.service.files().list(q=dup_query, fields="files(id,name)").execute().get('files', [])
+            
+            if existing:
                 ts = datetime.datetime.now().strftime("%H%M%S")
-                parts = filename.rsplit('.', 1)
-                if len(parts) == 2:
-                    filename = f"{parts[0]}_{ts}.{parts[1]}"
-                else:
-                    filename = f"{filename}_{ts}"
-                print(f"⚠️ File exists, renamed to: {filename}")
+                name, ext = filename.rsplit('.', 1) if '.' in filename else (filename, '')
+                filename = f"{name}_{ts}.{ext}" if ext else f"{name}_{ts}"
+                print(f"⚠️ Renamed to avoid conflict: {filename}")
 
             image_bytes.seek(0)
             media = MediaIoBaseUpload(image_bytes, mimetype='image/jpeg', resumable=True)
             file_metadata = {'name': filename, 'parents': [catalog_folder_id]}
-
+            
             file = self.service.files().create(
                 body=file_metadata,
                 media_body=media,
                 fields='id,webViewLink'
             ).execute()
-
-            print(f"✅ Uploaded: {filename} to Shobha Sarees/{catalog or ''}")
+            
+            print(f"✅ Uploaded: {filename}")
             return file.get('webViewLink')
-
+            
         except Exception as e:
-            print(f"❌ Upload error: {str(e)}")
+            print(f"❌ Upload failed: {e}")
             raise e
