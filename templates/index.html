@@ -1,119 +1,468 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Photo Maker — Shobha Sarees</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="/static/styles.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Shobha Sarees - Photo Maker</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #1a1a1a; color: white; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .form-group { margin: 15px 0; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        select, input { padding: 16px; border: 1px solid #333; background: #2a2a2a; color: white; border-radius: 8px; width: 100%; font-size: 16px; }
+        .dropzone { border: 2px dashed #4CAF50; padding: 30px; text-align: center; border-radius: 12px; cursor: pointer; margin: 15px 0; min-height: 120px; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .dropzone:hover { background: rgba(76, 175, 80, 0.1); }
+        .button { background: #4CAF50; color: white; padding: 16px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin: 8px; min-height: 48px; }
+        .button:hover { background: #45a049; }
+        .button.secondary { background: #2196F3; }
+        .button.danger { background: #f44336; }
+        .preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 15px 0; }
+        .preview-item { background: #2a2a2a; border-radius: 8px; overflow: hidden; }
+        .preview-item img { width: 100%; height: 120px; object-fit: cover; }
+        .preview-item input { margin: 8px; width: calc(100% - 16px); padding: 8px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #2a2a2a; padding: 20px; border-radius: 12px; text-align: center; max-width: 95%; max-height: 90%; }
+        video { width: 100%; max-width: 350px; border-radius: 8px; height: auto; }
+        .progress { background: #333; height: 24px; border-radius: 12px; margin: 20px 0; }
+        .progress-bar { background: #4CAF50; height: 100%; border-radius: 12px; width: 0%; transition: width 0.3s; }
+        .toast { position: fixed; top: 20px; right: 20px; background: #4CAF50; color: white; padding: 12px 16px; border-radius: 8px; z-index: 1000; max-width: 300px; }
+        .toast.error { background: #f44336; }
+        .results { margin: 20px 0; }
+        .result-item { background: #2a2a2a; padding: 15px; margin: 10px 0; border-radius: 8px; word-wrap: break-word; }
+        .buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .hidden { display: none; }
+        @media (max-width: 600px) {
+            .preview { grid-template-columns: repeat(2, 1fr); }
+            .buttons { flex-direction: column; }
+            .button { width: 100%; }
+        }
+    </style>
 </head>
-<body class="theme">
-
-{% include '_navbar.html' %}
-
-<div class="app-container-glassmorphic">
-  <div class="app-logo-bg" id="appLogoBg"></div>
-  
-  <main class="photo-maker-overlay glass">
-    <header class="app-header-glass">
-      <div class="header-content">
-        <h1 class="app-title gradient-text">Create Plates</h1>
-        <p class="app-subtitle">Upload images, assign design numbers, and process.</p>
-      </div>
-      <div class="header-glow"></div>
-    </header>
-
-    <section class="photo-maker-panel glass">
-      <form id="uploadForm" class="photo-maker-form">
-        <div class="form-row-glass">
-          <div class="field-glass">
-            <label class="label-glass">Catalog</label>
-            <div class="select-wrap-premium glass">
-              <select name="catalog" class="select-glass" required>
-                <option value="">Choose collection...</option>
-                {% for c in catalogs %}
-                <option value="{{ c }}">{{ c }}</option>
+<body>
+    <div class="container">
+        <h1>Shobha Sarees Photo Maker</h1>
+        
+        <div class="form-group">
+            <label for="catalog">Select Catalog:</label>
+            <select id="catalog" required>
+                <option value="">Choose a catalog...</option>
+                {% for catalog in catalogs %}
+                <option value="{{ catalog }}">{{ catalog }}</option>
                 {% endfor %}
-              </select>
-              <svg class="select-arrow-glass" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"></path></svg>
-            </div>
-          </div>
-
-          <div class="field-glass">
-            <label class="label-glass">Add Images</label>
-            <div id="dropzone" class="dropzone-glass glass">
-              <input type="file" id="fileInput" name="files" accept="image/*" multiple capture="environment">
-              <div class="dropzone-content">
-                <svg viewBox="0 0 24 24" class="dz-icon-glass">
-                  <path d="M14,2H6A2,2 0,0,0,4,4V20a2,2 0,0,0,2,2H18a2,2 0,0,0,2-2V8Z"/>
-                </svg>
-                <div class="upload-title">Drag & drop or tap to upload</div>
-                <div class="upload-subtitle">Images are optimized ≤10MB for fast upload</div>
-              </div>
-              <div class="dropzone-glow"></div>
-            </div>
-            <div class="action-buttons-glass">
-              <button type="button" id="openCameraBtn" class="btn-glass ghost">Use Camera</button>
-              <button type="button" id="clearAllBtn" class="btn-glass ghost">Clear</button>
-            </div>
-          </div>
+            </select>
         </div>
 
-        <div id="previewViewport" class="viewport-glass glass">
-          <div id="previewSpacer" class="spacer"></div>
-          <div id="previewGrid" class="vgrid" aria-live="polite"></div>
+        <div class="form-group">
+            <label>Upload Images:</label>
+            <div id="dropzone" class="dropzone">
+                <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
+                <div>📁 Tap here to select images</div>
+                <small>Max 10 images, 3MB each</small>
+            </div>
         </div>
 
-        <div class="actions-glass">
-          <button id="processBtn" class="btn-glass primary glassmorphic-btn" type="submit">
-            <span class="btn-content">
-              <span class="btn-txt">Process Images</span>
-              <span class="btn-icon">🔄</span>
-            </span>
-            <div class="btn-glow"></div>
-          </button>
-          
-          <!-- Premium Progress Bar -->
-          <div class="progress-container glass" id="progressContainer" style="display: none;">
-            <div class="progress-header">
-              <span class="progress-title">Processing Images</span>
-              <span class="progress-percentage" id="progressPercentage">0%</span>
-            </div>
-            <div class="progress-bar-premium">
-              <div class="progress-fill-premium" id="progressFill"></div>
-              <div class="progress-glow"></div>
-            </div>
-            <div class="progress-status" id="progressStatus">Preparing files...</div>
-          </div>
+        <div class="buttons">
+            <button id="cameraBtn" class="button secondary">📷 Open Camera</button>
+            <button id="clearBtn" class="button danger">🗑️ Clear All</button>
+            <button id="processBtn" class="button">⚡ Process Images</button>
         </div>
-      </form>
-    </section>
 
-    <section class="results-panel-glass glass" id="resultsPanel" style="display:none;">
-      <h2 class="panel-title-glass">Results</h2>
-      <div id="resultsGrid" class="results-grid-glass"></div>
-    </section>
-  </main>
-</div>
+        <div id="preview" class="preview"></div>
 
-{% include '_sidebar_menu.html' %}
+        <div id="progressContainer" class="hidden">
+            <h3>Processing Images...</h3>
+            <div class="progress">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
+            <p id="progressText">0%</p>
+        </div>
 
-<!-- Modals -->
-<div id="cameraModal" class="modal">
-  <div class="modal-card glass">
-    <div class="progress-head">Camera</div>
-    <div class="camera-wrap">
-      <video id="cameraVideo" playsinline autoplay></video>
-      <div class="camera-actions">
-        <button id="captureBtn" class="btn-glass primary glassmorphic-btn">Capture</button>
-        <button id="closeCameraBtn" class="btn-glass ghost">Close</button>
-      </div>
+        <div id="results" class="results"></div>
     </div>
-    <canvas id="cameraCanvas" style="display:none;"></canvas>
-  </div>
-</div>
 
-<div id="toastHost" class="toast-host"></div>
-<script src="/static/app.js"></script>
+    <div id="cameraModal" class="modal">
+        <div class="modal-content">
+            <h3>Camera</h3>
+            <video id="cameraVideo" autoplay playsinline muted></video><br>
+            <canvas id="cameraCanvas" style="display: none;"></canvas><br>
+            <button id="captureBtn" class="button">📸 Capture</button>
+            <button id="closeCameraBtn" class="button secondary">❌ Close</button>
+        </div>
+    </div>
+
+    <script>
+        class MobilePhotoMaker {
+            constructor() {
+                this.items = [];
+                this.stream = null;
+                this.processing = false;
+                this.init();
+            }
+
+            init() {
+                // Get elements
+                this.dropzone = document.getElementById('dropzone');
+                this.fileInput = document.getElementById('fileInput');
+                this.catalog = document.getElementById('catalog');
+                this.preview = document.getElementById('preview');
+                this.cameraBtn = document.getElementById('cameraBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.processBtn = document.getElementById('processBtn');
+                this.cameraModal = document.getElementById('cameraModal');
+                this.cameraVideo = document.getElementById('cameraVideo');
+                this.cameraCanvas = document.getElementById('cameraCanvas');
+                this.captureBtn = document.getElementById('captureBtn');
+                this.closeCameraBtn = document.getElementById('closeCameraBtn');
+                this.progressContainer = document.getElementById('progressContainer');
+                this.progressBar = document.getElementById('progressBar');
+                this.progressText = document.getElementById('progressText');
+                this.results = document.getElementById('results');
+
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                // File upload
+                this.dropzone.addEventListener('click', () => this.fileInput.click());
+                this.fileInput.addEventListener('change', (e) => this.handleFiles(Array.from(e.target.files)));
+
+                // Drag and drop
+                this.dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.dropzone.style.background = 'rgba(76, 175, 80, 0.2)';
+                });
+                this.dropzone.addEventListener('dragleave', () => {
+                    this.dropzone.style.background = '';
+                });
+                this.dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.dropzone.style.background = '';
+                    this.handleFiles(Array.from(e.dataTransfer.files));
+                });
+
+                // Buttons
+                this.cameraBtn.addEventListener('click', () => this.openCamera());
+                this.captureBtn.addEventListener('click', () => this.capturePhoto());
+                this.closeCameraBtn.addEventListener('click', () => this.closeCamera());
+                this.clearBtn.addEventListener('click', () => this.clearAll());
+                this.processBtn.addEventListener('click', () => this.processImages());
+
+                // Modal close on background click
+                this.cameraModal.addEventListener('click', (e) => {
+                    if (e.target === this.cameraModal) this.closeCamera();
+                });
+            }
+
+            async handleFiles(files) {
+                const imageFiles = files.filter(f => f.type.startsWith('image/'));
+                
+                if (!imageFiles.length) {
+                    this.showToast('No valid images selected', 'error');
+                    return;
+                }
+
+                if (this.items.length + imageFiles.length > 10) {
+                    this.showToast('Maximum 10 images allowed', 'error');
+                    return;
+                }
+
+                for (const file of imageFiles) {
+                    // Check file size and compress if needed
+                    let processedFile = file;
+                    if (file.size > 3 * 1024 * 1024) { // 3MB
+                        processedFile = await this.compressImage(file);
+                    }
+
+                    const id = Date.now() + Math.random();
+                    this.items.push({
+                        id: id,
+                        file: processedFile,
+                        design: '',
+                        url: URL.createObjectURL(processedFile)
+                    });
+                }
+
+                this.showToast(`Added ${imageFiles.length} images`, 'success');
+                this.updatePreview();
+            }
+
+            async compressImage(file) {
+                return new Promise((resolve) => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                        // Mobile-optimized dimensions
+                        let { width, height } = img;
+                        const maxDimension = 1400;
+                        
+                        if (width > maxDimension || height > maxDimension) {
+                            const ratio = Math.min(maxDimension / width, maxDimension / height);
+                            width = Math.round(width * ratio);
+                            height = Math.round(height * ratio);
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        canvas.toBlob((blob) => {
+                            const compressed = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(compressed);
+                        }, 'image/jpeg', 0.8);
+                    };
+                    
+                    img.src = URL.createObjectURL(file);
+                });
+            }
+
+            updatePreview() {
+                this.preview.innerHTML = '';
+                
+                this.items.forEach((item, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'preview-item';
+                    div.innerHTML = `
+                        <img src="${item.url}" alt="Preview ${index + 1}">
+                        <input type="text" placeholder="Design Number" value="${item.design}" 
+                               data-id="${item.id}">
+                    `;
+                    
+                    const input = div.querySelector('input');
+                    input.addEventListener('input', (e) => {
+                        const item = this.items.find(i => i.id == e.target.dataset.id);
+                        if (item) item.design = e.target.value;
+                    });
+                    
+                    this.preview.appendChild(div);
+                });
+            }
+
+            async openCamera() {
+                if (!navigator.mediaDevices?.getUserMedia) {
+                    this.showToast('Camera not supported', 'error');
+                    return;
+                }
+
+                try {
+                    // Mobile-optimized camera constraints
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1280, max: 1920 },
+                            height: { ideal: 720, max: 1080 }
+                        }
+                    });
+                    
+                    this.cameraVideo.srcObject = this.stream;
+                    
+                    // Wait for video to load
+                    await new Promise((resolve) => {
+                        this.cameraVideo.addEventListener('loadedmetadata', resolve, { once: true });
+                    });
+                    
+                    this.cameraModal.style.display = 'flex';
+                    this.showToast('Camera ready!', 'success');
+                    
+                } catch (error) {
+                    console.error('Camera error:', error);
+                    let message = 'Camera access failed';
+                    if (error.name === 'NotAllowedError') {
+                        message = 'Camera permission denied';
+                    } else if (error.name === 'NotFoundError') {
+                        message = 'No camera found';
+                    }
+                    this.showToast(message, 'error');
+                }
+            }
+
+            capturePhoto() {
+                if (!this.stream) return;
+
+                const canvas = this.cameraCanvas;
+                const video = this.cameraVideo;
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+
+                canvas.toBlob((blob) => {
+                    const file = new File([blob], `camera-${Date.now()}.jpg`, { 
+                        type: 'image/jpeg' 
+                    });
+                    this.handleFiles([file]);
+                    this.closeCamera();
+                }, 'image/jpeg', 0.9);
+            }
+
+            closeCamera() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+                this.cameraModal.style.display = 'none';
+            }
+
+            clearAll() {
+                this.items.forEach(item => URL.revokeObjectURL(item.url));
+                this.items = [];
+                this.updatePreview();
+                this.showToast('All cleared', 'success');
+            }
+
+            async processImages() {
+                if (this.processing) return;
+                
+                if (!this.items.length) {
+                    this.showToast('No images to process', 'error');
+                    return;
+                }
+
+                if (!this.catalog.value) {
+                    this.showToast('Select a catalog first', 'error');
+                    return;
+                }
+
+                this.processing = true;
+                this.showProgress();
+
+                const formData = new FormData();
+                formData.append('catalog', this.catalog.value);
+
+                const mapping = this.items.map((item, index) => ({
+                    index: index,
+                    design_number: item.design || `Design_${index + 1}`
+                }));
+                formData.append('mapping', JSON.stringify(mapping));
+
+                this.items.forEach(item => formData.append('files', item.file));
+
+                try {
+                    // Mobile-optimized fetch with longer timeout
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds
+
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData,
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+                    }
+
+                    const data = await response.json();
+                    this.hideProgress();
+                    this.displayResults(data);
+                    
+                    const successCount = data.results?.filter(r => r.status === 'success').length || 0;
+                    this.showToast(`${successCount} images processed successfully`, 'success');
+
+                } catch (error) {
+                    this.hideProgress();
+                    console.error('Upload error:', error);
+                    
+                    let message = 'Upload failed';
+                    if (error.name === 'AbortError') {
+                        message = 'Upload timeout - try fewer images';
+                    } else if (error.message.includes('fetch') || error.message.includes('Network')) {
+                        message = 'Network error - check connection';
+                    } else {
+                        message = `Upload failed: ${error.message}`;
+                    }
+                    
+                    this.showToast(message, 'error');
+                } finally {
+                    this.processing = false;
+                }
+            }
+
+            showProgress() {
+                this.progressContainer.classList.remove('hidden');
+                this.processBtn.disabled = true;
+                
+                let progress = 0;
+                const interval = setInterval(() => {
+                    if (!this.processing) {
+                        clearInterval(interval);
+                        this.progressBar.style.width = '100%';
+                        this.progressText.textContent = '100%';
+                        return;
+                    }
+                    
+                    progress += Math.random() * 8;
+                    if (progress > 90) progress = 90;
+                    
+                    this.progressBar.style.width = progress + '%';
+                    this.progressText.textContent = Math.round(progress) + '%';
+                }, 400);
+            }
+
+            hideProgress() {
+                setTimeout(() => {
+                    this.progressContainer.classList.add('hidden');
+                    this.processBtn.disabled = false;
+                }, 2000);
+            }
+
+            displayResults(data) {
+                this.results.innerHTML = '<h3>Results:</h3>';
+                
+                if (!data.results?.length) {
+                    this.results.innerHTML += '<p>No results received</p>';
+                    return;
+                }
+                
+                data.results.forEach(result => {
+                    const div = document.createElement('div');
+                    div.className = 'result-item';
+                    div.innerHTML = `
+                        <strong>${result.filename}</strong><br>
+                        Status: <span style="color: ${result.status === 'success' ? '#4CAF50' : '#f44336'}">
+                            ${result.status === 'success' ? '✅ Success' : '❌ Failed'}
+                        </span><br>
+                        ${result.url ? `<a href="${result.url}" target="_blank" style="color: #2196F3;">View in Drive</a>` : ''}
+                        ${result.error ? `<br><small style="color: #f44336;">Error: ${result.error}</small>` : ''}
+                    `;
+                    this.results.appendChild(div);
+                });
+            }
+
+            showToast(message, type = 'success') {
+                // Remove existing toasts
+                document.querySelectorAll('.toast').forEach(t => t.remove());
+                
+                const toast = document.createElement('div');
+                toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 4000);
+                
+                // Tap to dismiss
+                toast.addEventListener('click', () => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                });
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.photoMaker = new MobilePhotoMaker();
+        });
+    </script>
 </body>
 </html>
