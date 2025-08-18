@@ -104,17 +104,16 @@ class PlateMaker:
                     self.REMBG_API_URL, 
                     headers=headers, 
                     files=files, 
-                    timeout=30  # Reduced timeout
+                    timeout=30
                 )
                 
                 if resp.status_code == 200:
                     return Image.open(BytesIO(resp.content)).convert("RGBA")
-                elif resp.status_code == 429:  # Rate limited
+                elif resp.status_code == 429:
                     if attempt < 2:
-                        time.sleep(2 ** attempt)  # Exponential backoff
+                        time.sleep(2 ** attempt)
                         continue
                 
-                # Log other status codes
                 print(f"rembg API returned {resp.status_code}: {resp.text[:200]}")
                 
             except requests.exceptions.Timeout:
@@ -142,7 +141,7 @@ class PlateMaker:
             # Remove white/light backgrounds (simple threshold)
             for item in data:
                 # If pixel is mostly white/light, make it transparent
-                if item[0] > 240 and item[1] > 240 and item[2] > 240:
+                if item[0] > 240 and item[1] > 240 and item[1] > 240:
                     new_data.append((255, 255, 255, 0))  # Transparent
                 else:
                     new_data.append(item)
@@ -152,11 +151,10 @@ class PlateMaker:
             
         except Exception as e:
             print(f"Fallback background removal failed: {e}")
-            # Last resort: return original image with white background
+            # Last resort: return original image
             img = Image.open(BytesIO(img_bytes)).convert("RGBA")
             return img
 
-    # ---------------- Original helpers preserved ----------------
     def trim_transparent(self, img: Image.Image) -> Image.Image:
         if img.mode != "RGBA":
             img = img.convert("RGBA")
@@ -183,8 +181,10 @@ class PlateMaker:
             scale = target_w / logo.width
             logo = logo.resize((target_w, int(logo.height * scale)), Image.Resampling.LANCZOS)
 
-            alpha = logo.split()[3].point(lambda p: int(p * opacity))
-            logo.putalpha(alpha)
+            # Get alpha channel correctly
+            if logo.mode == "RGBA":
+                alpha = logo.split()[2].point(lambda p: int(p * opacity))
+                logo.putalpha(alpha)
 
             sx, sy = fg_pos
             fw, fh = fg_size
@@ -194,7 +194,6 @@ class PlateMaker:
             canvas.paste(logo, (lx, ly), logo)
         except Exception as e:
             print(f"Logo overlay failed: {e}")
-            # Continue without logo if it fails
             
         return canvas
 
@@ -221,12 +220,54 @@ class PlateMaker:
                 return ImageFont.load_default()
 
     def text_wh(self, txt: str, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
-        bbox = font.getbbox(txt)
-        return bbox[2] - bbox, bbox[3] - bbox[1]
+        """FIXED: Handle PIL bbox returning tuples or unexpected formats"""
+        try:
+            bbox = font.getbbox(txt)
+            
+            # Ensure we have 4 values
+            if len(bbox) != 4:
+                raise ValueError(f"Expected 4 bbox values, got {len(bbox)}")
+            
+            x0, y0, x1, y1 = bbox
+            
+            # Handle cases where PIL returns tuples instead of integers
+            # Extract first element if tuple
+            if isinstance(x0, (tuple, list)):
+                x0 = x0[0]
+            if isinstance(y0, (tuple, list)):
+                y0 = y0  
+            if isinstance(x1, (tuple, list)):
+                x1 = x1
+            if isinstance(y1, (tuple, list)):
+                y1 = y1
+            
+            # Convert to integers if needed
+            x0, y0, x1, y1 = int(x0), int(y0), int(x1), int(y1)
+            
+            width = x1 - x0
+            height = y1 - y0
+            
+            # Ensure positive dimensions
+            return max(width, 0), max(height, 0)
+            
+        except Exception as e:
+            print(f"text_wh error with font {font}: {e}")
+            # Fallback: estimate based on text length and font size
+            estimated_width = len(txt) * (font.size * 0.6)
+            estimated_height = font.size * 1.2
+            return int(estimated_width), int(estimated_height)
 
     def best_font(self, txt: str, max_w: int) -> ImageFont.FreeTypeFont:
+        """Find the best font size that fits within max_w"""
         for size in range(self.MAX_FONT_SIZE, self.MIN_FONT_SIZE - 1, -2):
-            f = self.load_font(size)
-            if self.text_wh(txt, f)[0] <= max_w:
-                return f
+            try:
+                f = self.load_font(size)
+                text_width, _ = self.text_wh(txt, f)
+                if text_width <= max_w:
+                    return f
+            except Exception as e:
+                print(f"Font sizing error at size {size}: {e}")
+                continue
+        
+        # Return minimum size font as fallback
         return self.load_font(self.MIN_FONT_SIZE)
