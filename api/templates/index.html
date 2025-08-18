@@ -2,118 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Shobha Sarees - Photo Maker</title>
     <link rel="stylesheet" href="/static/styles.css">
-    <script defer src="/static/app.js"></script>
-    <script defer src="/static/global.js"></script>
-    
-    <!-- Preload critical resources -->
-    <link rel="preload" href="/static/logo.png" as="image">
-    <link rel="preload" href="/static/logo-red.png" as="image">
-    
-    <!-- PWA Support -->
-    <meta name="theme-color" content="#4f8cff">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Shobha Sarees">
 </head>
 <body class="theme">
-    <!-- Skip Navigation for Accessibility -->
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-
-    <!-- Primary Navigation -->
-    <nav class="navbar glass" role="navigation" aria-label="Primary navigation">
+    <nav class="navbar glass">
         <div class="nav-left">
-            <button 
-                id="globalHamburger" 
-                class="nav-hamburger" 
-                aria-controls="glassmorphicSidebar" 
-                aria-expanded="false" 
-                aria-label="Toggle navigation menu"
-                title="Open menu"
-            >
-                <span aria-hidden="true"></span>
-                <span aria-hidden="true"></span>
-                <span aria-hidden="true"></span>
+            <button id="globalHamburger" class="nav-hamburger" aria-label="Menu">
+                <span></span><span></span><span></span>
             </button>
-            
-            <a href="/" class="nav-brand" aria-label="Shobha Sarees home page">
-                <img 
-                    src="/static/logo.png" 
-                    alt="Shobha Sarees logo" 
-                    class="nav-logo" 
-                    id="navLogo"
-                    width="32" 
-                    height="32"
-                >
+            <a href="/" class="nav-brand">
+                <img src="/static/logo.png" alt="Logo" class="nav-logo" id="navLogo">
                 <span class="nav-title">Shobha Sarees</span>
             </a>
         </div>
-        
         <div class="nav-right">
-            <button 
-                id="themeSwitchGlobal" 
-                class="theme-switch" 
-                role="switch" 
-                aria-checked="false" 
-                aria-label="Toggle between light and dark theme"
-                title="Switch theme"
-            >
+            <button id="themeSwitchGlobal" class="theme-switch" role="switch" aria-checked="false">
                 <div class="switch-track">
-                    <span class="switch-icon" aria-hidden="true">🌙</span>
-                    <span class="switch-icon" aria-hidden="true">☀️</span>
+                    <span class="switch-icon">🌙</span>
+                    <span class="switch-icon">☀️</span>
                     <div class="switch-thumb"></div>
                 </div>
             </button>
         </div>
     </nav>
 
-    <!-- Sidebar Navigation -->
-    <aside 
-        class="glassmorphic-sidebar glass" 
-        id="glassmorphicSidebar" 
-        role="navigation" 
-        aria-label="Secondary navigation" 
-        aria-hidden="true"
-    >
+    <aside class="glassmorphic-sidebar glass" id="glassmorphicSidebar" aria-hidden="true">
         <div class="sidebar-header-improved">
-            <div class="sidebar-logo-container">
-                <img 
-                    src="/static/logo.png" 
-                    alt="Shobha Sarees logo" 
-                    class="sidebar-logo-improved" 
-                    id="sidebarLogo"
-                    width="48" 
-                    height="48"
-                >
-            </div>
+            <img src="/static/logo.png" alt="Logo" class="sidebar-logo-improved" id="sidebarLogo">
             <div class="sidebar-brand">
                 <h2 class="brand-name">Shobha Sarees</h2>
                 <p class="brand-subtitle">Photo Maker</p>
             </div>
         </div>
-        
-        <nav class="sidebar-navigation" role="navigation" aria-label="Application sections">
-            <a href="/" class="nav-item" aria-label="Go to home page">
-                <span class="nav-icon" aria-hidden="true">🏠</span>
+        <nav class="sidebar-navigation">
+            <a href="/" class="nav-item">
+                <span class="nav-icon">🏠</span>
                 <span class="nav-text">Home</span>
             </a>
-            <a href="/app" class="nav-item" aria-current="page" aria-label="Photo maker application">
-                <span class="nav-icon" aria-hidden="true">📸</span>
+            <a href="/app" class="nav-item">
+                <span class="nav-icon">📸</span>
                 <span class="nav-text">Photo Maker</span>
             </a>
         </nav>
-        
         <div class="sidebar-footer">
             <form method="post" action="/logout">
-                <button 
-                    type="submit" 
-                    class="logout-btn-improved"
-                    aria-label="Sign out of your account"
-                    title="Sign out"
-                >
-                    <span class="nav-icon" aria-hidden="true">🚪</span>
+                <button type="submit" class="logout-btn-improved">
+                    <span class="nav-icon">🚪</span>
                     <span class="nav-text">Logout</span>
                 </button>
             </form>
@@ -122,89 +58,38 @@
 
     <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
-    <!-- Main Content Area -->
-    <main 
-        id="main-content" 
-        role="main" 
-        tabindex="-1" 
-        class="app-container-glassmorphic" 
-        aria-label="Photo maker application"
-    >
-        <div class="app-logo-bg" id="appLogoBg" aria-hidden="true"></div>
-
+    <main class="app-container-glassmorphic" id="appLogoBg">
+        <div class="app-logo-bg"></div>
         <div class="photo-maker-overlay glass">
-            <!-- App Header -->
             <header class="app-header-glass">
                 <h1 class="app-title">Photo Maker</h1>
-                <p class="app-subtitle">Transform your saree photos with professional processing</p>
+                <p class="app-subtitle">Upload and process saree photos</p>
             </header>
 
-            <!-- Main Upload Form -->
-            <form 
-                id="uploadForm" 
-                class="photo-maker-form" 
-                novalidate 
-                aria-live="polite"
-                aria-label="Image upload and processing form"
-            >
+            <form id="uploadForm" class="photo-maker-form" novalidate>
                 <div class="form-row-glass">
-                    <!-- Catalog Selection -->
                     <div class="field-glass">
                         <label for="catalog-select" class="label-glass">Select Catalog</label>
                         <div class="select-wrap-premium">
-                            <select 
-                                id="catalog-select" 
-                                name="catalog" 
-                                class="select-glass" 
-                                required 
-                                aria-required="true" 
-                                aria-describedby="catalog-help"
-                                aria-label="Choose catalog for your images"
-                            >
+                            <select id="catalog-select" name="catalog" class="select-glass" required>
                                 <option value="" disabled selected>Choose a catalog...</option>
                                 {% for catalog in catalogs %}
                                 <option value="{{ catalog }}">{{ catalog }}</option>
                                 {% endfor %}
                             </select>
-                            <svg class="select-arrow-glass" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M7 10L12 15L17 10H7Z" />
-                            </svg>
-                            <div id="catalog-help" class="sr-only">
-                                Required: Choose which catalog to organize your images under
-                            </div>
                         </div>
                     </div>
 
-                    <!-- File Upload Area -->
                     <div class="field-glass">
                         <label for="fileInput" class="label-glass">Upload Images</label>
-                        <div 
-                            id="dropzone" 
-                            class="dropzone-glass" 
-                            role="button" 
-                            aria-describedby="upload-instructions" 
-                            tabindex="0"
-                            aria-label="Drop images here or click to browse files"
-                        >
-                            <input 
-                                type="file" 
-                                id="fileInput" 
-                                name="files" 
-                                accept="image/*" 
-                                multiple 
-                                aria-label="Select multiple image files to upload"
-                                aria-describedby="upload-instructions"
-                            >
+                        <div id="dropzone" class="dropzone-glass" tabindex="0">
+                            <input type="file" id="fileInput" name="files" accept="image/*" multiple>
                             <div class="dropzone-content">
-                                <svg class="dz-icon-glass" viewBox="0 0 24 24" aria-hidden="true">
+                                <svg class="dz-icon-glass" viewBox="0 0 24 24">
                                     <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
                                 </svg>
                                 <div class="upload-title">Drop images here or click to browse</div>
-                                <div class="upload-subtitle" id="upload-instructions">
-                                    Large images will be automatically compressed<br>
-                                    <strong>Recommended:</strong> Images under 8MB for best results<br>
-                                    <small>Maximum 10 files, 15MB total</small>
-                                </div>
+                                <div class="upload-subtitle">Large images will be automatically compressed</div>
                             </div>
                         </div>
                     </div>
@@ -212,62 +97,33 @@
 
                 <!-- Image Preview Area -->
                 <div class="field-glass">
-                    <div class="label-glass">
-                        <span>Image Preview</span>
-                        <span id="imageCount" class="sr-only">0 images selected</span>
-                    </div>
-                    <div 
-                        id="previewViewport" 
-                        class="viewport-glass" 
-                        role="region" 
-                        aria-label="Image preview area"
-                        aria-live="polite"
-                    >
+                    <div class="label-glass">Image Preview</div>
+                    <div id="previewViewport" class="viewport-glass">
                         <div id="previewGrid" class="vgrid"></div>
                         <div id="previewSpacer" class="spacer"></div>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
                 <div class="action-buttons-glass">
-                    <button 
-                        type="button" 
-                        class="btn-glass ghost" 
-                        id="openCameraBtn"
-                        aria-label="Open camera to take photos"
-                        title="Open camera"
-                    >
+                    <button type="button" class="btn-glass ghost" id="openCameraBtn">
                         <div class="btn-content">
-                            <span class="btn-icon" aria-hidden="true">📷</span>
+                            <span class="btn-icon">📷</span>
                             <span>Open Camera</span>
                         </div>
                     </button>
                     
-                    <button 
-                        type="button" 
-                        class="btn-glass ghost" 
-                        id="clearAllBtn"
-                        aria-label="Clear all uploaded images"
-                        title="Remove all images"
-                    >
+                    <button type="button" class="btn-glass ghost" id="clearAllBtn">
                         <div class="btn-content">
-                            <span class="btn-icon" aria-hidden="true">🗑️</span>
+                            <span class="btn-icon">🗑️</span>
                             <span>Clear All</span>
                         </div>
                     </button>
                 </div>
 
-                <!-- Submit Button -->
                 <div class="actions-glass">
-                    <button 
-                        type="submit" 
-                        class="glassmorphic-btn" 
-                        id="processBtn"
-                        aria-label="Process and upload all images"
-                        title="Start processing images"
-                    >
+                    <button type="submit" class="glassmorphic-btn" id="processBtn">
                         <div class="btn-content">
-                            <span class="btn-icon" aria-hidden="true">⚡</span>
+                            <span class="btn-icon">⚡</span>
                             <span>Process Images</span>
                         </div>
                         <div class="btn-glow"></div>
@@ -275,16 +131,8 @@
                 </div>
             </form>
 
-            <!-- Progress Indicator -->
-            <div 
-                id="progressContainer" 
-                class="progress-container" 
-                role="progressbar" 
-                aria-live="polite" 
-                aria-atomic="true" 
-                aria-label="Upload progress"
-                style="display: none;"
-            >
+            <!-- Progress Container -->
+            <div id="progressContainer" class="progress-container" style="display: none;">
                 <div class="progress-header">
                     <div class="progress-title">Processing Images...</div>
                     <div id="progressPercentage" class="progress-percentage">0%</div>
@@ -296,90 +144,36 @@
             </div>
 
             <!-- Results Panel -->
-            <section 
-                id="resultsPanel" 
-                class="results-panel-glass" 
-                aria-live="polite" 
-                aria-atomic="true"
-                style="display: none;"
-            >
+            <section id="resultsPanel" class="results-panel-glass" style="display: none;">
                 <h2 class="panel-title-glass">Processing Results</h2>
-                <div 
-                    id="resultsGrid" 
-                    class="results-grid-glass" 
-                    role="list"
-                    aria-label="Upload results"
-                ></div>
+                <div id="resultsGrid" class="results-grid-glass"></div>
             </section>
         </div>
     </main>
 
     <!-- Camera Modal -->
-    <div 
-        id="cameraModal" 
-        class="modal" 
-        role="dialog" 
-        aria-modal="true" 
-        aria-labelledby="cameraModalTitle" 
-        tabindex="-1"
-        style="display: none;"
-    >
+    <div id="cameraModal" class="modal" style="display: none;">
         <div class="modal-card">
-            <header>
-                <h3 id="cameraModalTitle" class="progress-head">Camera Capture</h3>
-            </header>
-            
+            <h3>Camera Capture</h3>
             <div class="camera-wrap">
-                <video 
-                    id="cameraVideo" 
-                    autoplay 
-                    playsinline 
-                    muted
-                    aria-label="Camera preview"
-                ></video>
-                <canvas id="cameraCanvas" hidden></canvas>
+                <video id="cameraVideo" autoplay playsinline muted style="width: 100%; max-width: 400px; border-radius: 12px;"></video>
+                <canvas id="cameraCanvas" style="display: none;"></canvas>
             </div>
-            
             <div class="camera-actions">
-                <button 
-                    id="captureBtn" 
-                    class="btn-glass primary"
-                    aria-label="Capture photo"
-                    title="Take photo"
-                >
-                    <div class="btn-content">
-                        <span class="btn-icon" aria-hidden="true">📸</span>
-                        <span>Capture</span>
-                    </div>
+                <button id="captureBtn" class="btn-glass primary">
+                    <span>📸 Capture</span>
                 </button>
-                
-                <button 
-                    id="closeCameraBtn" 
-                    class="btn-glass ghost"
-                    aria-label="Close camera"
-                    title="Close camera"
-                >
-                    <div class="btn-content">
-                        <span class="btn-icon" aria-hidden="true">✕</span>
-                        <span>Close</span>
-                    </div>
+                <button id="closeCameraBtn" class="btn-glass ghost">
+                    <span>✕ Close</span>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notifications Container -->
-    <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+    <!-- Toast Container -->
+    <div id="toastHost" class="toast-host"></div>
 
-    <!-- Service Worker Registration (Optional PWA Feature) -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(() => console.log('SW registered'))
-                    .catch(() => console.log('SW registration failed'));
-            });
-        }
-    </script>
+    <script src="/static/global.js"></script>
+    <script src="/static/app.js"></script>
 </body>
 </html>
