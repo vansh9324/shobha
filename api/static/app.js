@@ -1,818 +1,546 @@
-async compressImage(file, maxSizeMB = 4, quality = 0.8) {
-    return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
+// ========== ENHANCED PHOTO MAKER UI (Mobile-First) ==========
+class PhotoMakerUI {
+    constructor() {
+        // State management
+        this.items = [];
+        this.idSeq = 0;
+        this.isProcessing = false;
+        this.lastRenderedCount = 0;
         
-        img.onload = () => {
-            // Calculate new dimensions to reduce file size
-            let { width, height } = img;
-            const maxDimension = 2000; // Max width/height
-            
-            if (width > maxDimension || height > maxDimension) {
-                const ratio = Math.min(maxDimension / width, maxDimension / height);
-                width *= ratio;
-                height *= ratio;
-            }
-            
-            canvas.width = width;
-            canvas.height = height;
-            
-            // Draw and compress
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            // Convert to blob with quality compression
-            canvas.toBlob((blob) => {
-                const compressedFile = new File(
-                    [blob], 
-                    file.name.replace(/\.[^/.]+$/, '.jpg'), // Convert to JPG
-                    { type: 'image/jpeg', lastModified: Date.now() }
-                );
-                
-                console.log(`Compressed ${file.name}: ${(file.size/1024/1024).toFixed(2)}MB → ${(compressedFile.size/1024/1024).toFixed(2)}MB`);
-                resolve(compressedFile);
-            }, 'image/jpeg', quality);
+        // Mobile-responsive settings
+        this.updateViewportSettings();
+        
+        // Camera stream
+        this.stream = null;
+        
+        // Performance tracking
+        this.performanceMetrics = {
+            compressionTime: 0,
+            uploadTime: 0,
+            totalFiles: 0
         };
         
-        img.src = URL.createObjectURL(file);
-    });
-}
-// ========== OPTIMIZED PHOTO MAKER UI ==========
-class PhotoMakerUI {
-  // Track last rendered count to append only new cards
-  _lastRenderedCount = 0;
-
-  constructor() {
-    // State management
-    this.items = [];
-    this.idSeq = 0;
-    this.isProcessing = false;
-    
-    // DOM Elements - cached for performance
-    this.elements = this.cacheElements();
-    
-    // Virtualization settings
-    this.cardW = 160;
-    this.cardH = 180; // 120 + 8 + 40 + 12
-    this.gap = 10;
-    this.colCount = 2;
-    this.rowCount = 0;
-    
-    // Camera stream
-    this.stream = null;
-    
-    // Initialize the app
-    this.init();
-  }
-  
-  // Cache all DOM elements for better performance
-  cacheElements() {
-    return {
-      // Form elements
-      fileInput: document.getElementById('fileInput'),
-      dropzone: document.getElementById('dropzone'),
-      form: document.getElementById('uploadForm'),
-      processBtn: document.getElementById('processBtn'),
-      
-      // Preview elements
-      viewport: document.getElementById('previewViewport'),
-      vgrid: document.getElementById('previewGrid'),
-      spacer: document.getElementById('previewSpacer'),
-      
-      // Results elements
-      resultsPanel: document.getElementById('resultsPanel'),
-      resultsGrid: document.getElementById('resultsGrid'),
-      
-      // Progress elements
-      progressContainer: document.getElementById('progressContainer'),
-      progressFill: document.getElementById('progressFill'),
-      progressPercentage: document.getElementById('progressPercentage'),
-      progressStatus: document.getElementById('progressStatus'),
-      
-      // Camera elements
-      cameraModal: document.getElementById('cameraModal'),
-      cameraVideo: document.getElementById('cameraVideo'),
-      cameraCanvas: document.getElementById('cameraCanvas'),
-      openCameraBtn: document.getElementById('openCameraBtn'),
-      captureBtn: document.getElementById('captureBtn'),
-      closeCameraBtn: document.getElementById('closeCameraBtn'),
-      
-      // Navigation elements
-      hamburger: document.getElementById('globalHamburger'),
-      sidebar: document.getElementById('glassmorphicSidebar'),
-      overlay: document.getElementById('sidebarOverlay'),
-      themeSwitch: document.getElementById('themeSwitchGlobal'),
-      navLogo: document.getElementById('navLogo'),
-      sidebarLogo: document.getElementById('sidebarLogo'),
-      appBg: document.getElementById('appLogoBg'),
-      
-      // Toast
-      toastHost: document.getElementById('toastHost')
-    };
-  }
-  
-  // Initialize all functionality
-  init() {
-    this.initTheme();
-    this.initSidebar();
-    this.initDropzone();
-    this.initCamera();
-    this.initForm();
-    this.initVirtualization();
-    this.bindEvents();
-  }
-  
-  // ========== THEME MANAGEMENT ==========
-  initTheme() {
-    try {
-      const saved = localStorage.getItem('theme');
-      if (saved) document.documentElement.setAttribute('data-theme', saved);
-    } catch(e) {
-      console.warn('Could not access localStorage:', e);
-    }
-    
-    if (!this.elements.themeSwitch) return;
-    
-    const updateTheme = (theme) => {
-      const logoSrc = theme === 'light' ? '/static/logo-red.png' : '/static/logo.png';
-      
-      // Update all logos efficiently
-      [this.elements.navLogo, this.elements.sidebarLogo].forEach(logo => {
-        if (logo) logo.src = logoSrc;
-      });
-      
-      if (this.elements.appBg) {
-        this.elements.appBg.style.backgroundImage = `url("${logoSrc}")`;
-      }
-      
-      this.elements.themeSwitch.setAttribute('aria-checked', theme === 'light' ? 'true' : 'false');
-    };
-    
-    const toggle = () => {
-      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', newTheme);
-      
-      try { 
-        localStorage.setItem('theme', newTheme); 
-      } catch(e) {
-        console.warn('Could not save to localStorage:', e);
-      }
-      
-      updateTheme(newTheme);
-      this.showToast(`Switched to ${newTheme} theme`, 'good');
-    };
-    
-    // Bind events
-    this.elements.themeSwitch.addEventListener('click', toggle);
-    this.elements.themeSwitch.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggle();
-      }
-    });
-    
-    // Set initial theme
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-    updateTheme(currentTheme);
-  }
-  
-  // ========== SIDEBAR MANAGEMENT ==========
-  initSidebar() {
-    const { hamburger, sidebar, overlay } = this.elements;
-    if (!hamburger || !sidebar || !overlay) return;
-    
-    const openSidebar = () => {
-      sidebar.classList.add('active');
-      overlay.classList.add('active');
-      hamburger.classList.add('active');
-      hamburger.setAttribute('aria-expanded', 'true');
-      document.body.style.overflow = 'hidden';
-    };
-    
-    const closeSidebar = () => {
-      sidebar.classList.remove('active');
-      overlay.classList.remove('active');
-      hamburger.classList.remove('active');
-      hamburger.setAttribute('aria-expanded', 'false');
-      document.body.style.overflow = '';
-    };
-    
-    const toggleSidebar = () => {
-      if (sidebar.classList.contains('active')) {
-        closeSidebar();
-      } else {
-        openSidebar();
-      }
-    };
-    
-    // Bind events
-    hamburger.addEventListener('click', toggleSidebar);
-    overlay.addEventListener('click', closeSidebar);
-    
-    // Close on escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeSidebar();
-    });
-  }
-  
-// ========== DROPZONE MANAGEMENT ========== 
-initDropzone() {
-    const { dropzone, fileInput } = this.elements;
-    if (!dropzone || !fileInput) return;
-
-    // Prevent default drag behaviors
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropzone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        });
-    });
-
-    // Visual feedback
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropzone.addEventListener(eventName, () => {
-            dropzone.classList.add('drag');
-        });
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropzone.addEventListener(eventName, () => {
-            dropzone.classList.remove('drag');
-        });
-    });
-
-    // Handle drop
-    dropzone.addEventListener('drop', (e) => {
-        const files = Array.from(e.dataTransfer.files || []);
-        this.addFiles(files);
-    });
-
-    // FIXED: Handle dropzone click to open file dialog
-    dropzone.addEventListener('click', (e) => {
-        // Don't trigger if clicking on the hidden file input itself
-        if (e.target !== fileInput) {
-            e.preventDefault();
-            fileInput.click();
-        }
-    });
-
-    // Handle file input change
-    fileInput.addEventListener('change', (e) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length > 0) {
-            this.addFiles(files);
-            this.showToast(`Selected ${files.length} image${files.length > 1 ? 's' : ''}`, 'info');
-        }
-        e.target.value = ''; // Reset input
-    });
-}  
-  // ========== CAMERA MANAGEMENT ==========
-  initCamera() {
-    const { openCameraBtn, captureBtn, closeCameraBtn } = this.elements;
-    
-    if (openCameraBtn) {
-      openCameraBtn.addEventListener('click', () => this.openCamera());
-    }
-    
-    if (captureBtn) {
-      captureBtn.addEventListener('click', () => this.captureFromCamera());
-    }
-    
-    if (closeCameraBtn) {
-      closeCameraBtn.addEventListener('click', () => this.closeCamera());
-    }
-  }
-  
-  async openCamera() {
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: { ideal: 'environment' } }, 
-        audio: false 
-      });
-      this.elements.cameraVideo.srcObject = this.stream;
-      this.elements.cameraModal.classList.add('show');
-    } catch(e) {
-      this.showToast('Camera not available', 'bad');
-      console.error('Camera error:', e);
-    }
-  }
-  
-  async captureFromCamera() {
-    if (!this.stream) return;
-    const { cameraVideo, cameraCanvas } = this.elements;
-    
-    const w = cameraVideo.videoWidth;
-    const h = cameraVideo.videoHeight;
-    if (!w || !h) return;
-    
-    cameraCanvas.width = w;
-    cameraCanvas.height = h;
-    
-    const ctx = cameraCanvas.getContext('2d');
-    ctx.drawImage(cameraVideo, 0, 0, w, h);
-    
-    try {
-      const blob = await new Promise(resolve => 
-        cameraCanvas.toBlob(resolve, 'image/jpeg', 0.92)
-      );
-      
-      if (!blob) return;
-      
-      let file = new File([blob], `capture_${Date.now()}.jpg`, { 
-        type: 'image/jpeg', 
-        lastModified: Date.now() 
-      });
-      
-      // Compress if needed
-      if (file.size > 10 * 1024 * 1024) {
-        file = await this.compressFile(file, 10 * 1024 * 1024);
-      }
-      
-      this.addFiles([file]);
-      this.closeCamera();
-    } catch(e) {
-      this.showToast('Failed to capture image', 'bad');
-      console.error('Capture error:', e);
-    }
-  }
-  
-  closeCamera() {
-    if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
-      this.stream = null;
-    }
-    this.elements.cameraModal.classList.remove('show');
-  }
-  
-  // ========== FORM MANAGEMENT ==========
-  initForm() {
-    if (this.elements.form) {
-      this.elements.form.addEventListener('submit', (e) => this.handleSubmit(e));
-    }
-    
-    const clearBtn = document.getElementById('clearAllBtn');
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => this.clearAll());
-    }
-  }
-  
-  // Replace the handleSubmit method in your existing app.js:
-
-async handleSubmit(e) {
-    e.preventDefault();
-    if (this.isProcessing) return;
-
-    if (!this.items.length) {
-        this.showToast('No images to process', 'bad');
-        return;
-    }
-
-    const catalogSelect = this.elements.form.querySelector('select[name="catalog"]');
-    if (!catalogSelect.value) {
-        this.showToast('Please select a catalog', 'bad');
-        return;
-    }
-
-    this.isProcessing = true;
-    
-    try {
-        const formData = new FormData();
-        formData.append('catalog', catalogSelect.value);
+        // DOM Elements cache
+        this.elements = this.cacheElements();
         
-        const mapping = this.items.map((item, index) => ({
-            index,
-            design_number: item.design || `Design_${index + 1}`
-        }));
-        formData.append('mapping', JSON.stringify(mapping));
-        
-        this.items.forEach(item => formData.append('files', item.file));
-        
-        this.showProgress();
-        
-        const response = await fetch('/upload', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            this.displayResults(data);
-            const successCount = data.results.filter(r => r.status === 'success').length;
-            const errorCount = data.results.filter(r => r.status === 'error').length;
+        // Initialize the app
+        this.init();
+    }
+    
+    // ========== INITIALIZATION ==========
+    cacheElements() {
+        return {
+            // Form elements
+            fileInput: document.getElementById('fileInput'),
+            dropzone: document.getElementById('dropzone'),
+            form: document.getElementById('uploadForm'),
+            processBtn: document.getElementById('processBtn'),
+            catalogSelect: document.getElementById('catalog-select'),
             
-            if (successCount > 0) {
-                this.showToast(`Successfully processed ${successCount} images`, 'good');
-            }
-            if (errorCount > 0) {
-                this.showToast(`${errorCount} images failed to process`, 'bad');
-            }
+            // Preview elements
+            viewport: document.getElementById('previewViewport'),
+            vgrid: document.getElementById('previewGrid'),
+            spacer: document.getElementById('previewSpacer'),
+            
+            // Results elements
+            resultsPanel: document.getElementById('resultsPanel'),
+            resultsGrid: document.getElementById('resultsGrid'),
+            
+            // Progress elements
+            progressContainer: document.getElementById('progressContainer'),
+            progressFill: document.getElementById('progressFill'),
+            progressPercentage: document.getElementById('progressPercentage'),
+            progressStatus: document.getElementById('progressStatus'),
+            
+            // Camera elements
+            cameraModal: document.getElementById('cameraModal'),
+            cameraVideo: document.getElementById('cameraVideo'),
+            cameraCanvas: document.getElementById('cameraCanvas'),
+            openCameraBtn: document.getElementById('openCameraBtn'),
+            captureBtn: document.getElementById('captureBtn'),
+            closeCameraBtn: document.getElementById('closeCameraBtn'),
+            
+            // Navigation elements
+            hamburger: document.getElementById('globalHamburger'),
+            sidebar: document.getElementById('glassmorphicSidebar'),
+            overlay: document.getElementById('sidebarOverlay'),
+            themeSwitch: document.getElementById('themeSwitchGlobal'),
+            navLogo: document.getElementById('navLogo'),
+            sidebarLogo: document.getElementById('sidebarLogo'),
+            appBg: document.getElementById('appLogoBg'),
+            
+            // Toast system
+            toastHost: document.getElementById('toastHost')
+        };
+    }
+    
+    updateViewportSettings() {
+        const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+        
+        if (vw <= 480) {
+            // Mobile settings
+            this.cardW = 120;
+            this.cardH = 160;
+            this.gap = 8;
+            this.colCount = 2;
+        } else if (vw <= 768) {
+            // Tablet settings
+            this.cardW = 140;
+            this.cardH = 170;
+            this.gap = 10;
+            this.colCount = 3;
         } else {
-            // Handle authentication errors
-            if (response.status === 401) {
-                this.showToast('Session expired. Redirecting to login...', 'bad');
-                setTimeout(() => window.location.href = '/login', 2000);
-            } else {
-                this.showToast(data.error || 'Upload failed', 'bad');
-            }
+            // Desktop settings
+            this.cardW = 160;
+            this.cardH = 180;
+            this.gap = 12;
+            this.colCount = 4;
         }
-    } catch(error) {
-        this.showToast('Network error occurred. Please check your connection.', 'bad');
-        console.error('Upload error:', error);
-    } finally {
-        this.isProcessing = false;
-        this.hideProgress(); // Always hide progress
     }
-}
-
-  // ========== FILE MANAGEMENT ==========
-  async addFiles(files) {
-    const imageFiles = files.filter(f => f && f.type && f.type.startsWith('image/'));
     
-    if (!imageFiles.length) {
-        this.showToast('No valid images selected', 'info');
-        return;
+    init() {
+        this.initTheme();
+        this.initSidebar();
+        this.initDropzone();
+        this.initCamera();
+        this.initForm();
+        this.initVirtualization();
+        this.bindEvents();
+        
+        // Mobile-specific initialization
+        this.initMobileOptimizations();
+        this.initTouchGestures();
+        
+        console.log('✅ PhotoMaker UI initialized');
     }
-
-    this.showToast('Processing images...', 'info');
     
-    const processedFiles = [];
+    initMobileOptimizations() {
+        // Prevent bounce scrolling on iOS
+        document.body.addEventListener('touchmove', (e) => {
+            if (e.target === document.body) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Handle orientation changes
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                this.updateViewportSettings();
+                this.updateLayout();
+            }, 100);
+        });
+        
+        // Handle resize for responsive updates
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                this.updateViewportSettings();
+                this.updateLayout();
+            }, 150);
+        });
+    }
     
-    for (const file of imageFiles) {
+    initTouchGestures() {
+        // Add touch feedback to buttons
+        const buttons = document.querySelectorAll('.btn-glass, .glassmorphic-btn, .nav-item');
+        
+        buttons.forEach(btn => {
+            btn.addEventListener('touchstart', () => {
+                btn.style.transform = 'scale(0.95)';
+            }, { passive: true });
+            
+            btn.addEventListener('touchend', () => {
+                setTimeout(() => {
+                    btn.style.transform = '';
+                }, 100);
+            }, { passive: true });
+        });
+    }
+    
+    // ========== THEME MANAGEMENT ==========
+    initTheme() {
         try {
-            let processedFile = file;
+            const saved = localStorage.getItem('theme');
+            if (saved) document.documentElement.setAttribute('data-theme', saved);
+        } catch(e) {
+            console.warn('Could not access localStorage:', e);
+        }
+        
+        if (!this.elements.themeSwitch) return;
+        
+        const updateTheme = (theme) => {
+            const logoSrc = theme === 'light' ? '/static/logo-red.png' : '/static/logo.png';
             
-            // Check if file needs compression
-            const fileSizeMB = file.size / 1024 / 1024;
+            // Update all logos efficiently
+            [this.elements.navLogo, this.elements.sidebarLogo].forEach(logo => {
+                if (logo) logo.src = logoSrc;
+            });
             
-            if (fileSizeMB > 3) { // Compress files larger than 3MB
-                this.showToast(`Compressing ${file.name} (${fileSizeMB.toFixed(1)}MB)...`, 'info');
-                processedFile = await this.compressImage(file, 3.5, 0.85);
+            if (this.elements.appBg) {
+                this.elements.appBg.style.backgroundImage = `url("${logoSrc}")`;
             }
             
-            processedFiles.push(processedFile);
+            this.elements.themeSwitch.setAttribute('aria-checked', theme === 'light' ? 'true' : 'false');
+        };
+        
+        const toggle = () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
             
-        } catch (error) {
-            console.error(`Error processing ${file.name}:`, error);
-            this.showToast(`Failed to process ${file.name}`, 'bad');
-        }
-    }
-    
-    // Filter out duplicates
-    const uniqueFiles = this.dedupeFiles(processedFiles);
-    
-    if (!uniqueFiles.length) {
-        this.showToast('No new images to add', 'info');
-        return;
-    }
-
-    // Add to items
-    uniqueFiles.forEach(file => {
-        this.items.push({
-            file,
-            id: this.idSeq++,
-            design: '',
-            url: URL.createObjectURL(file)
+            try {
+                localStorage.setItem('theme', newTheme);
+            } catch(e) {
+                console.warn('Could not save to localStorage:', e);
+            }
+            
+            updateTheme(newTheme);
+            this.showToast(`Switched to ${newTheme} theme`, 'good');
+        };
+        
+        // Bind events
+        this.elements.themeSwitch.addEventListener('click', toggle);
+        this.elements.themeSwitch.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggle();
+            }
         });
-    });
-
-    this.showToast(`Added ${uniqueFiles.length} image${uniqueFiles.length > 1 ? 's' : ''}`, 'good');
-    this.updateLayout();
-}
-  
-  clearAll() {
-    // Revoke blob URLs to free memory and prevent churn
-    this.items.forEach(item => {
-      if (item.url) URL.revokeObjectURL(item.url);
-    });
-    this.items = [];
-    this._lastRenderedCount = 0;
-    if (this.elements.vgrid) this.elements.vgrid.innerHTML = '';
-    if (this.elements.spacer) this.elements.spacer.style.height = '0px';
-    this.showToast('All images cleared', 'info');
-  }
-  
-  // ========== VIRTUALIZATION ==========
-  initVirtualization() {
-    if (this.elements.viewport) {
-      this.computeColumns();
-      window.addEventListener('resize', this.debounce(() => this.onResize(), 100));
-    }
-  }
-  
-  computeColumns() {
-    if (!this.elements.viewport) return;
-    const vpW = this.elements.viewport.clientWidth || 320;
-    this.colCount = Math.max(1, Math.floor((vpW + this.gap) / (this.cardW + this.gap)));
-  }
-  
-  onResize() {
-    const prevCols = this.colCount;
-    this.computeColumns();
-    if (prevCols !== this.colCount) {
-      this.updateLayout();
-    }
-  }
-  
-  updateLayout() {
-    const { spacer, vgrid } = this.elements;
-    if (!spacer || !vgrid) return;
-
-    // Recompute columns only if needed
-    const prevCols = this.colCount;
-    this.computeColumns();
-
-    // If column count changed, we must reposition all cards
-    const mustRelayout = prevCols !== this.colCount;
-
-    if (this.items.length === 0) {
-      spacer.style.height = '0px';
-      vgrid.innerHTML = '';
-      this._lastRenderedCount = 0;
-      return;
-    }
-
-    this.rowCount = Math.ceil(this.items.length / this.colCount);
-    const totalHeight = this.rowCount * (this.cardH + this.gap) + this.gap;
-    spacer.style.height = `${totalHeight}px`;
-
-    if (mustRelayout) {
-      // Reposition existing cards without recreating URLs
-      vgrid.innerHTML = '';
-      this._lastRenderedCount = 0;
-    }
-
-    // Append only the new items not yet rendered
-    this.renderItems();
-  }
-
-  // Only append new cards; avoid clearing the grid
-  renderItems() {
-    const { vgrid } = this.elements;
-    if (!vgrid) return;
-
-    const start = this._lastRenderedCount || 0;
-    const total = this.items.length;
-    if (start >= total) return;
-
-    const batch = 80; // tweak for device
-    let i = start;
-
-    const step = () => {
-      const frag = document.createDocumentFragment();
-      const end = Math.min(i + batch, total);
-      for (; i < end; i++) {
-        const r = Math.floor(i / this.colCount);
-        const c = i % this.colCount;
-        const x = this.gap + c * (this.cardW + this.gap);
-        const y = this.gap + r * (this.cardH + this.gap);
-        frag.appendChild(this.createCard(this.items[i], x, y));
-      }
-      vgrid.appendChild(frag);
-      if (i < total) {
-        requestAnimationFrame(step);
-      } else {
-        this._lastRenderedCount = total;
-      }
-    };
-    requestAnimationFrame(step);
-  }
-
-  // Reuse the URL; set stable sizing hints
-  createCard(item, x, y) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.style.width = `${this.cardW}px`;
-    card.style.transform = `translate(${x}px, ${y}px)`;
-    card.style.position = 'absolute';
-
-    const img = document.createElement('img');
-    img.className = 'thumb';
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    img.fetchPriority = 'low';
-    img.width = this.cardW; // sizing hint to prevent reflow
-    img.height = 120; // your fixed thumb height
-    img.src = item.url; // reuse, do not recreate
-    img.alt = item.file.name;
-    img.style.contentVisibility = 'auto'; // reduces paint until visible
-
-    const body = document.createElement('div');
-    body.className = 'card-body';
-
-    const input = document.createElement('input');
-    input.className = 'input';
-    input.placeholder = 'Design Number';
-    input.value = item.design || '';
-    input.inputMode = 'numeric';
-    input.addEventListener('input', (e) => {
-      item.design = e.target.value.trim();
-    });
-
-    body.appendChild(input);
-    card.appendChild(img);
-    card.appendChild(body);
-    return card;
-  }
-  
-  // ========== PROGRESS MANAGEMENT ==========
-  showProgress() {
-    const { progressContainer, processBtn } = this.elements;
-    if (progressContainer && processBtn) {
-      processBtn.style.display = 'none';
-      progressContainer.style.display = 'block';
-      this.animateProgress();
-    }
-  }
-  
-  // Also update the hideProgress method:
-hideProgress() {
-    const { progressContainer, processBtn } = this.elements;
-    if (progressContainer && processBtn) {
-        progressContainer.style.display = 'none';
-        processBtn.style.display = 'block';
-    }
-  }
-  
-  animateProgress() {
-    const { progressFill, progressPercentage, progressStatus } = this.elements;
-    if (!progressFill || !progressPercentage || !progressStatus) return;
-    
-    let progress = 0;
-    const stages = [
-      { end: 20, text: 'Validating images...' },
-      { end: 40, text: 'Optimizing quality...' },
-      { end: 65, text: 'Applying branding...' },
-      { end: 85, text: 'Uploading to Drive...' },
-      { end: 100, text: 'Complete!' }
-    ];
-    
-    let currentStage = 0;
-    
-    const updateProgress = () => {
-      if (currentStage < stages.length) {
-        const stage = stages[currentStage];
-        progressStatus.textContent = stage.text;
         
-        const increment = Math.random() * 3 + 1;
-        progress = Math.min(progress + increment, stage.end);
+        // Set initial theme
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        updateTheme(currentTheme);
+    }
+    
+    // ========== SIDEBAR MANAGEMENT ==========
+    initSidebar() {
+        const { hamburger, sidebar, overlay } = this.elements;
+        if (!hamburger || !sidebar || !overlay) return;
         
-        progressFill.style.width = `${progress}%`;
-        progressPercentage.textContent = `${Math.round(progress)}%`;
+        const openSidebar = () => {
+            sidebar.classList.add('active');
+            overlay.classList.add('active');
+            hamburger.classList.add('active');
+            hamburger.setAttribute('aria-expanded', 'true');
+            sidebar.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            
+            // Focus first focusable element in sidebar
+            const firstFocusable = sidebar.querySelector('a, button');
+            if (firstFocusable) firstFocusable.focus();
+        };
         
-        if (progress >= stage.end) {
-          currentStage++;
+        const closeSidebar = () => {
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+            hamburger.classList.remove('active');
+            hamburger.setAttribute('aria-expanded', 'false');
+            sidebar.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+            
+            // Return focus to hamburger
+            hamburger.focus();
+        };
+        
+        const toggleSidebar = () => {
+            if (sidebar.classList.contains('active')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        };
+        
+        // Bind events
+        hamburger.addEventListener('click', toggleSidebar);
+        overlay.addEventListener('click', closeSidebar);
+        
+        // Close on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sidebar.classList.contains('active')) {
+                closeSidebar();
+            }
+        });
+        
+        // Handle swipe gestures on mobile
+        if ('ontouchstart' in window) {
+            this.initSidebarSwipeGestures(sidebar, closeSidebar);
+        }
+    }
+    
+    initSidebarSwipeGestures(sidebar, closeSidebar) {
+        let startX = 0;
+        let startY = 0;
+        
+        sidebar.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches.clientY;
+        }, { passive: true });
+        
+        sidebar.addEventListener('touchmove', (e) => {
+            if (!startX || !startY) return;
+            
+            const diffX = startX - e.touches[0].clientX;
+            const diffY = startY - e.touches.clientY;
+            
+            // Swipe left to close
+            if (Math.abs(diffX) > Math.abs(diffY) && diffX > 50) {
+                closeSidebar();
+                startX = 0;
+                startY = 0;
+            }
+        }, { passive: true });
+    }
+    
+    // ========== ENHANCED DROPZONE ==========
+    initDropzone() {
+        const { dropzone, fileInput } = this.elements;
+        if (!dropzone || !fileInput) return;
+        
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+        
+        // Visual feedback
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => {
+                dropzone.classList.add('drag');
+            });
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => {
+                dropzone.classList.remove('drag');
+            });
+        });
+        
+        // Handle drop
+        dropzone.addEventListener('drop', (e) => {
+            const files = Array.from(e.dataTransfer.files || []);
+            if (files.length > 0) {
+                this.addFiles(files);
+            }
+        });
+        
+        // Handle dropzone click
+        dropzone.addEventListener('click', (e) => {
+            if (e.target !== fileInput && !this.isProcessing) {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });
+        
+        // Handle file input change
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
+                this.addFiles(files);
+            }
+            e.target.value = ''; // Reset input
+        });
+    }
+    
+    // ========== ADVANCED FILE COMPRESSION ==========
+    async compressImage(file, maxSizeMB = 3.5, quality = 0.85) {
+        return new Promise((resolve, reject) => {
+            const startTime = performance.now();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = () => {
+                try {
+                    let { width, height } = img;
+                    
+                    // Smart resizing based on file size and dimensions
+                    const fileSizeMB = file.size / 1024 / 1024;
+                    let maxDimension = 2400;
+                    
+                    if (fileSizeMB > 10) {
+                        maxDimension = 2000;
+                        quality = 0.8;
+                    } else if (fileSizeMB > 5) {
+                        maxDimension = 2200;
+                        quality = 0.82;
+                    }
+                    
+                    // Calculate new dimensions
+                    if (width > maxDimension || height > maxDimension) {
+                        const ratio = Math.min(maxDimension / width, maxDimension / height);
+                        width = Math.round(width * ratio);
+                        height = Math.round(height * ratio);
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // Apply image smoothing for better quality
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    
+                    // Draw and compress
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Convert to blob with progressive quality adjustment
+                    let currentQuality = quality;
+                    const tryCompress = () => {
+                        canvas.toBlob((blob) => {
+                            if (!blob) {
+                                reject(new Error('Compression failed'));
+                                return;
+                            }
+                            
+                            const compressedSizeMB = blob.size / 1024 / 1024;
+                            
+                            // If still too large, reduce quality
+                            if (compressedSizeMB > maxSizeMB && currentQuality > 0.6) {
+                                currentQuality -= 0.05;
+                                tryCompress();
+                                return;
+                            }
+                            
+                            const compressedFile = new File(
+                                [blob],
+                                file.name.replace(/\.[^/.]+$/, '.jpg'),
+                                { type: 'image/jpeg', lastModified: Date.now() }
+                            );
+                            
+                            const endTime = performance.now();
+                            this.performanceMetrics.compressionTime += endTime - startTime;
+                            
+                            console.log(`✅ Compressed ${file.name}: ${fileSizeMB.toFixed(2)}MB → ${compressedSizeMB.toFixed(2)}MB (${((1 - compressedSizeMB/fileSizeMB) * 100).toFixed(1)}% reduction)`);
+                            
+                            resolve(compressedFile);
+                        }, 'image/jpeg', currentQuality);
+                    };
+                    
+                    tryCompress();
+                    
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = URL.createObjectURL(file);
+        });
+    }
+    
+    // ========== ENHANCED FILE MANAGEMENT ==========
+    async addFiles(files) {
+        const imageFiles = files.filter(f => f && f.type && f.type.startsWith('image/'));
+        
+        if (!imageFiles.length) {
+            this.showToast('No valid images selected', 'info');
+            return;
         }
         
-        if (progress < 100) {
-          setTimeout(updateProgress, 200 + Math.random() * 300);
-        } else {
-          setTimeout(() => this.hideProgress(), 1500);
+        if (this.items.length + imageFiles.length > 10) {
+            this.showToast(`Maximum 10 files allowed. Currently have ${this.items.length}`, 'bad');
+            return;
         }
-      }
-    };
-    
-    updateProgress();
-  }
-  
-  // ========== RESULTS MANAGEMENT ==========
-  displayResults(data) {
-    if (!this.elements.resultsGrid) return;
-    
-    this.elements.resultsGrid.innerHTML = '';
-    
-    data.results.forEach(result => {
-      const div = document.createElement('div');
-      div.className = 'result';
-      div.innerHTML = `
-        <div class="result-head">
-          <div class="status ${result.status === 'success' ? 'ok' : 'err'}"></div>
-          <div class="result-name">${result.filename}</div>
-        </div>
-        ${result.status === 'success' 
-          ? `<a href="${result.url}" target="_blank" class="link">View on Drive</a>`
-          : `<div style="color: var(--bad); font-size: 13px;">${result.error}</div>`
+        
+        this.showToast(`Processing ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''}...`, 'info');
+        
+        const processedFiles = [];
+        let compressionCount = 0;
+        
+        for (const file of imageFiles) {
+            try {
+                let processedFile = file;
+                const fileSizeMB = file.size / 1024 / 1024;
+                
+                // Compress files larger than 2.5MB
+                if (fileSizeMB > 2.5) {
+                    this.showToast(`Compressing ${file.name} (${fileSizeMB.toFixed(1)}MB)...`, 'info');
+                    processedFile = await this.compressImage(file, 3.5, 0.85);
+                    compressionCount++;
+                }
+                
+                processedFiles.push(processedFile);
+                
+            } catch (error) {
+                console.error(`Error processing ${file.name}:`, error);
+                this.showToast(`Failed to process ${file.name}`, 'bad');
+            }
         }
-      `;
-      this.elements.resultsGrid.appendChild(div);
-    });
-    
-    this.elements.resultsPanel.style.display = 'block';
-  }
-  
-  // ========== TOAST SYSTEM ==========
-  showToast(message, type = 'info') {
-    if (!this.elements.toastHost) return;
-    
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.innerHTML = `
-      <span class="toast-icon">${type === 'good' ? '✅' : type === 'bad' ? '❌' : 'ℹ️'}</span>
-      <span class="toast-message">${message}</span>
-    `;
-    
-    this.elements.toastHost.appendChild(toast);
-    
-    // Show toast
-    requestAnimationFrame(() => toast.classList.add('show'));
-    
-    // Auto remove
-    setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => {
-        if (toast.parentNode) {
-          toast.remove();
+        
+        // Filter out duplicates
+        const uniqueFiles = this.dedupeFiles(processedFiles);
+        
+        if (!uniqueFiles.length) {
+            this.showToast('No new images to add', 'info');
+            return;
         }
-      }, 300);
-    }, 3000);
-  }
-  
-  // ========== FILE COMPRESSION ==========
-  async compressFile(file, maxBytes = 10 * 1024 * 1024) {
-    try {
-      const bitmap = await createImageBitmap(file);
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      // Calculate optimal size
-      let { width, height } = bitmap;
-      const maxDim = 2048;
-      
-      if (Math.max(width, height) > maxDim) {
-        const scale = maxDim / Math.max(width, height);
-        width = Math.round(width * scale);
-        height = Math.round(height * scale);
-      }
-      
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(bitmap, 0, 0, width, height);
-      
-      // Try different quality levels
-      for (const quality of [0.8, 0.6, 0.4, 0.2]) {
-        const blob = await new Promise(resolve => 
-          canvas.toBlob(resolve, 'image/jpeg', quality)
+        
+        // Add to items
+        uniqueFiles.forEach(file => {
+            this.items.push({
+                file,
+                id: this.idSeq++,
+                design: '',
+                url: URL.createObjectURL(file),
+                originalSize: files.find(f => f.name === file.name.replace('.jpg', ''))?.size || file.size,
+                compressed: file.type === 'image/jpeg' && compressionCount > 0
+            });
+        });
+        
+        const message = compressionCount > 0 
+            ? `Added ${uniqueFiles.length} image${uniqueFiles.length > 1 ? 's' : ''} (${compressionCount} compressed)`
+            : `Added ${uniqueFiles.length} image${uniqueFiles.length > 1 ? 's' : ''}`;
+            
+        this.showToast(message, 'good');
+        this.updateLayout();
+        
+        // Update performance metrics
+        this.performanceMetrics.totalFiles += uniqueFiles.length;
+    }
+    
+    dedupeFiles(files) {
+        const existing = new Set(
+            this.items.map(item => `${item.file.name}|${item.file.size}`)
         );
-        
-        if (blob.size <= maxBytes) {
-          return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {
-            type: 'image/jpeg',
-            lastModified: Date.now()
-          });
-        }
-      }
-      
-      // If still too large, return heavily compressed version
-      const blob = await new Promise(resolve => 
-        canvas.toBlob(resolve, 'image/jpeg', 0.1)
-      );
-      
-      return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {
-        type: 'image/jpeg',
-        lastModified: Date.now()
-      });
-    } catch(e) {
-      console.error('Compression failed:', e);
-      return file; // Return original if compression fails
-    }
-  }
-  
-  // ========== UTILITY FUNCTIONS ==========
-  bindEvents() {
-    // Handle window unload to clean up resources
-    window.addEventListener('beforeunload', () => {
-      this.cleanup();
-    });
-  }
-  
-  cleanup() {
-    // Clean up camera stream
-    if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
+        return files.filter(f => !existing.has(`${f.name}|${f.size}`));
     }
     
-    // Clean up object URLs
-    this.items.forEach(item => {
-      if (item.url) URL.revokeObjectURL(item.url);
-    });
-  }
-  
-  // Debounce utility for performance
-  debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  }
+    clearAll() {
+        // Show confirmation on mobile
+        if (this.items.length > 0) {
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile && !confirm(`Clear all ${this.items.length} images?`)) {
+                return;
+            }
+        }
+        
+        // Revoke blob URLs to free memory
+        this.items.forEach(item => {
+            if (item.url) URL.revokeObjectURL(item.url);
+        });
+        
+        this.items = [];
+        this.lastRenderedCount = 0;
+        this.performanceMetrics = { compressionTime: 0, uploadTime: 0, totalFiles: 0 };
+        
+        if (this.elements.vgrid) this.elements.vgrid.innerHTML = '';
+        if (this.elements.spacer) this.elements.spacer.style.height = '0px';
+        
+        this.showToast('All images cleared', 'info');
+    }
+    
+    // Continue with remaining methods...
+    // (I'll provide the rest when you ask for the next part)
 }
 
-// Initialize the app when DOM is ready
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  new PhotoMakerUI();
+    window.photoMakerUI = new PhotoMakerUI();
 });
+
+// Export for global access
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = PhotoMakerUI;
+}
