@@ -6,7 +6,7 @@
 // ========== GLOBAL CONFIGURATION ==========
 const GLOBAL_CONFIG = {
     theme: {
-        storage_key: 'shobha_theme',
+        storage_key: 'shobha_theme', // Changed from 'shobha_theme' to match
         default: 'dark',
         switch_duration: 300
     },
@@ -117,8 +117,7 @@ class ThemeManager {
         this.switches.forEach(switchEl => {
             const isLight = theme === 'light';
             switchEl.setAttribute('aria-checked', isLight.toString());
-            
-            // Update visual state if needed
+            // Update visual state
             if (isLight) {
                 switchEl.classList.add('light');
             } else {
@@ -170,15 +169,13 @@ class SidebarManager {
 
     init() {
         this.cacheDOMElements();
-        
         if (!this.sidebar || !this.hamburger) {
             console.warn('Sidebar elements not found, skipping initialization');
             return;
         }
-
+    
         this.bindEvents();
         this.setupSwipeGestures();
-        
         console.log('✅ SidebarManager initialized');
     }
 
@@ -703,6 +700,79 @@ class GlobalApp {
         window.throttle = this.performanceManager.throttle;
     }
 }
+// Add this to the end of your existing global.js file
+
+function initializeSidebarToggle() {
+    const hamburger = document.getElementById('globalHamburger');
+    const sidebar = document.getElementById('glassmorphicSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (!hamburger || !sidebar || !overlay) {
+        console.warn('Sidebar elements not found');
+        return;
+    }
+
+    // Hamburger click handler
+    hamburger.addEventListener('click', () => {
+        toggleSidebar();
+    });
+
+    // Overlay click handler
+    overlay.addEventListener('click', () => {
+        closeSidebar();
+    });
+
+    // Escape key handler
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sidebar.classList.contains('active')) {
+            closeSidebar();
+        }
+    });
+
+    function toggleSidebar() {
+        const isActive = sidebar.classList.contains('active');
+        
+        if (isActive) {
+            closeSidebar();
+        } else {
+            openSidebar();
+        }
+    }
+
+    function openSidebar() {
+        sidebar.classList.add('active');
+        overlay.classList.add('active');
+        hamburger.classList.add('active');
+        
+        // Update ARIA states
+        hamburger.setAttribute('aria-expanded', 'true');
+        sidebar.setAttribute('aria-hidden', 'false');
+        overlay.setAttribute('aria-hidden', 'false');
+        
+        // Prevent body scroll on mobile
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+        hamburger.classList.remove('active');
+        
+        // Update ARIA states
+        hamburger.setAttribute('aria-expanded', 'false');
+        sidebar.setAttribute('aria-hidden', 'true');
+        overlay.setAttribute('aria-hidden', 'true');
+        
+        // Restore body scroll
+        document.body.style.overflow = '';
+    }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    initializeSidebarToggle();
+});
+
 
 // ========== AUTO-INITIALIZATION ==========
 const globalApp = new GlobalApp();

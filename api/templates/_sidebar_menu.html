@@ -1,43 +1,69 @@
-<!-- Universal Glassmorphic Sidebar -->
-<div class="sidebar-overlay" id="sidebarOverlay"></div>
-<aside class="glassmorphic-sidebar glass" id="glassmorphicSidebar">
-  <div class="sidebar-header-improved">
-    <div class="sidebar-logo-container">
-      <img id="sidebarLogo" src="/static/logo.png" alt="Shobha Sarees" class="sidebar-logo-improved">
+<!-- UPDATED sidebar_menu.html -->
+<aside id="glassmorphicSidebar" class="glassmorphic-sidebar" aria-hidden="true">
+    <div class="sidebar-header-improved">
+        <div class="sidebar-logo-container">
+            <img src="/static/logo.png" alt="Shobha Sarees logo" class="sidebar-logo-improved" id="sidebarLogo" width="40" height="40">
+        </div>
+        <h2 class="brand-name">Shobha Sarees</h2>
+        <p class="brand-subtitle">Premium Fancy Sarees &bull; Surat</p>
     </div>
-    <div class="sidebar-brand">
-      <div class="brand-name">Photo Maker</div>
-      <div class="brand-subtitle">Shobha Sarees</div>
+
+    <nav class="sidebar-navigation" role="navigation" aria-label="Sidebar main navigation">
+        <section aria-labelledby="company-section">
+            <h3 class="nav-section-title" id="company-section">Company</h3>
+            <a href="/" class="nav-item" aria-current="page">
+                <span class="nav-icon" aria-hidden="true">📊</span>
+                <span class="nav-text">Dashboard</span>
+            </a>
+            <a href="/collections" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">👗</span>
+                <span class="nav-text">Collections</span>
+            </a>
+            <a href="/orders" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">📋</span>
+                <span class="nav-text">Orders</span>
+            </a>
+            <a href="/clients" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">👥</span>
+                <span class="nav-text">Clients</span>
+            </a>
+        </section>
+
+        <section aria-labelledby="tools-section">
+            <h3 class="nav-section-title" id="tools-section">Tools</h3>
+            <a href="/tools/photo-studio" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">📸</span>
+                <span class="nav-text">Photo Studio</span>
+            </a>
+            <a href="/tools/upload-center" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">☁️</span>
+                <span class="nav-text">Upload Center</span>
+            </a>
+            <a href="/tools/catalog-manager" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">📚</span>
+                <span class="nav-text">Catalog Manager</span>
+            </a>
+        </section>
+
+        <section aria-labelledby="system-section">
+            <h3 class="nav-section-title" id="system-section">System</h3>
+            <a href="/analytics" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">📈</span>
+                <span class="nav-text">Analytics</span>
+            </a>
+            <a href="/settings" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">⚙️</span>
+                <span class="nav-text">Settings</span>
+            </a>
+        </section>
+    </nav>
+
+    <div class="sidebar-footer">
+        <button class="logout-btn-improved" onclick="window.location.href='/logout'" aria-label="Log out of your account">
+            <span class="nav-icon" aria-hidden="true">🚪</span>
+            <span class="nav-text">Logout</span>
+        </button>
     </div>
-  </div>
-
-  <nav class="sidebar-navigation">
-    {% if request and request.session and request.session.get('auth') %}
-      <a class="nav-item glass-item" href="/">
-        <span class="nav-icon">🏠</span>
-        <span class="nav-text">Home</span>
-      </a>
-      <a class="nav-item glass-item" href="/app">
-        <span class="nav-icon">📸</span>
-        <span class="nav-text">Photo Maker</span>
-      </a>
-    {% else %}
-      <a class="nav-item glass-item" href="/login">
-        <span class="nav-icon">🔐</span>
-        <span class="nav-text">Login</span>
-      </a>
-    {% endif %}
-  </nav>
-
-  <!-- Sign-out at bottom -->
-  {% if request and request.session and request.session.get('auth') %}
-  <div class="sidebar-footer">
-    <form method="POST" action="/logout" class="logout-form-improved">
-      <button type="submit" class="logout-btn-improved glass-item">
-        <span class="nav-icon">🚪</span>
-        <span class="nav-text">Sign out</span>
-      </button>
-    </form>
-  </div>
-  {% endif %}
 </aside>
+
+<div id="sidebarOverlay" class="sidebar-overlay" aria-hidden="true" tabindex="-1"></div>

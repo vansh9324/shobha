@@ -85,20 +85,31 @@ class DriveUploader:
 
     def _authenticate_oauth2(self) -> Any:
         """OAuth2 authentication using refresh token."""
-        # Get credentials from environment
-        client_info_str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
-        if not client_info_str:
+        # Get credentials from environment; accept JSON text or file path
+        client_info_val = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+        if not client_info_val:
             raise RuntimeError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set")
 
         refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN", "").strip()
         if not refresh_token:
+            # Allow reading from file path for local development
+            rt_path = os.getenv("GOOGLE_REFRESH_TOKEN_FILE", "").strip()
+            if rt_path and os.path.exists(rt_path):
+                refresh_token = Path(rt_path).read_text(encoding="utf-8").strip()
+        if not refresh_token:
             raise RuntimeError("GOOGLE_REFRESH_TOKEN environment variable not set")
 
-        # Parse client info
+        # Parse client info; if a path, read file
+        client_info_str: str
+        if os.path.exists(client_info_val):
+            client_info_str = Path(client_info_val).read_text(encoding="utf-8")
+        else:
+            client_info_str = client_info_val
+
         try:
             client_info = json.loads(client_info_str)
         except json.JSONDecodeError as e:
-            raise RuntimeError(f"Invalid GOOGLE_APPLICATION_CREDENTIALS JSON: {e}")
+            raise RuntimeError(f"Invalid GOOGLE_APPLICATION_CREDENTIALS (JSON or file) content: {e}")
 
         # Extract OAuth2 client details
         if "installed" not in client_info:
@@ -141,8 +152,12 @@ class DriveUploader:
         except ImportError:
             raise RuntimeError("Service account authentication requires google-auth package")
 
-        # Look for service account key in environment
-        service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
+        # Look for service account key in environment; accept JSON or file path
+        service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT_KEY", "").strip()
+        if not service_account_info:
+            sa_path = os.getenv("GOOGLE_SERVICE_ACCOUNT_KEY_FILE", "").strip()
+            if sa_path and os.path.exists(sa_path):
+                service_account_info = Path(sa_path).read_text(encoding="utf-8")
         if not service_account_info:
             raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_KEY not found for service account authentication")
 
@@ -326,7 +341,7 @@ class DriveUploader:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             name_parts = filename.rsplit('.', 1)
             if len(name_parts) == 2:
-                return f"{name_parts[0]}_{timestamp}.{name_parts[11]}"
+                return f"{name_parts[0]}_{timestamp}.{name_parts[1]}"
             else:
                 return f"{filename}_{timestamp}"
 

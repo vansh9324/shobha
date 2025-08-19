@@ -22,9 +22,6 @@
     <meta name="referrer" content="no-referrer">
 </head>
 <body class="theme">
-    <!-- Skip Navigation for Accessibility -->
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-
     <!-- Minimal Navigation for Login -->
     <nav class="navbar glass" role="navigation" aria-label="Login page navigation">
         <div class="nav-left">
@@ -74,10 +71,7 @@
             <div class="login-glass-card glass">
                 <!-- Login Header -->
                 <header class="login-header">
-                    <h1 class="login-title">Welcome Back</h1>
-                    <p class="login-subtitle">
-                        Sign in to access the Shobha Sarees Photo Maker
-                    </p>
+                    <h1 class="login-title">Welcome back</h1>
                 </header>
                 
                 <!-- Error Display -->
@@ -101,12 +95,7 @@
                     action="/login"
                     novalidate
                     aria-label="Login form"
-                    aria-describedby="form-instructions"
                 >
-                    <div id="form-instructions" class="sr-only">
-                        Enter your username and password to access the photo maker application
-                    </div>
-                    
                     <!-- Username Field -->
                     <div class="input-field">
                         <label for="username">Username</label>
@@ -116,21 +105,12 @@
                             name="username" 
                             required 
                             autocomplete="username"
-                            aria-describedby="username-error username-help"
                             aria-invalid="false"
                             placeholder="Enter your username"
                             maxlength="50"
                             spellcheck="false"
                             autocapitalize="none"
                         >
-                        <div id="username-help" class="sr-only">
-                            Enter the username provided by your administrator
-                        </div>
-                        <div 
-                            id="username-error" 
-                            class="input-error sr-only" 
-                            aria-live="polite"
-                        ></div>
                     </div>
                     
                     <!-- Password Field -->
@@ -143,7 +123,6 @@
                                 name="password" 
                                 required 
                                 autocomplete="current-password"
-                                aria-describedby="password-error password-help"
                                 aria-invalid="false"
                                 placeholder="Enter your password"
                                 maxlength="100"
@@ -155,25 +134,11 @@
                                 class="password-toggle"
                                 aria-label="Show password"
                                 title="Toggle password visibility"
-                                tabindex="-1"
+                                id="passwordToggle"
                             >
-                                <span class="toggle-icon" aria-hidden="true">👁️</span>
+                                <span class="toggle-icon" aria-hidden="true" id="passwordIcon">👁️</span>
                             </button>
                         </div>
-                        <div id="password-help" class="sr-only">
-                            Enter the password provided by your administrator
-                        </div>
-                        <div 
-                            id="password-error" 
-                            class="input-error sr-only" 
-                            aria-live="polite"
-                        ></div>
-                    </div>
-                    
-                    <!-- Security Note -->
-                    <div class="security-note">
-                        <span class="security-icon" aria-hidden="true">🔒</span>
-                        <small>Your connection is secure and encrypted</small>
                     </div>
                     
                     <!-- Submit Button -->
@@ -184,41 +149,11 @@
                         id="submitBtn"
                     >
                         <div class="btn-content">
-                            <span class="btn-icon" aria-hidden="true">🔑</span>
                             <span class="btn-text">Sign In</span>
-                            <span class="btn-spinner" aria-hidden="true" style="display: none;">⏳</span>
                         </div>
                         <div class="btn-glow"></div>
                     </button>
                 </form>
-                
-                <!-- Additional Info -->
-                <footer class="login-footer">
-                    <div class="login-info">
-                        <p class="info-text">
-                            <span class="info-icon" aria-hidden="true">ℹ️</span>
-                            Need access? Contact your system administrator
-                        </p>
-                    </div>
-                    
-                    <!-- Accessibility Features -->
-                    <div class="accessibility-features">
-                        <details class="help-details">
-                            <summary class="help-summary">
-                                <span class="help-icon" aria-hidden="true">♿</span>
-                                Accessibility Help
-                            </summary>
-                            <div class="help-content">
-                                <ul class="help-list">
-                                    <li>Use <kbd>Tab</kbd> to navigate between form fields</li>
-                                    <li>Use <kbd>Enter</kbd> to submit the form</li>
-                                    <li>Use <kbd>Space</kbd> to toggle theme switch</li>
-                                    <li>Screen reader support is fully enabled</li>
-                                </ul>
-                            </div>
-                        </details>
-                    </div>
-                </footer>
             </div>
         </div>
     </main>
@@ -263,22 +198,9 @@
             line-height: 1;
         }
         
-        .security-note {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            color: var(--muted);
-            font-size: 0.8125rem;
-            margin: var(--spacing-sm) 0;
-            padding: var(--spacing-xs) var(--spacing-sm);
-            background: rgba(79, 140, 255, 0.05);
-            border-radius: 8px;
-            border-left: 3px solid var(--accent);
-        }
-        
         .login-submit {
             width: 100%;
-            margin-top: var(--spacing-md);
+            margin-top: var(--spacing-lg);
         }
         
         .login-submit:disabled {
@@ -287,119 +209,10 @@
             transform: none;
         }
         
-        .login-submit.loading .btn-text {
-            opacity: 0.7;
-        }
-        
-        .login-submit.loading .btn-spinner {
-            display: inline !important;
-        }
-        
-        .login-footer {
-            margin-top: var(--spacing-lg);
-            padding-top: var(--spacing-md);
-            border-top: 1px solid var(--border);
-        }
-        
-        .login-info {
-            text-align: center;
-            margin-bottom: var(--spacing-md);
-        }
-        
-        .info-text {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: var(--spacing-xs);
-            color: var(--muted);
-            font-size: 0.8125rem;
-        }
-        
-        .accessibility-features {
-            margin-top: var(--spacing-md);
-        }
-        
-        .help-details {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            border: 1px solid var(--border);
-        }
-        
-        .help-summary {
-            padding: var(--spacing-sm) var(--spacing-md);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            font-size: 0.8125rem;
-            color: var(--muted);
-            user-select: none;
-        }
-        
-        .help-summary:hover {
-            color: var(--text);
-        }
-        
-        .help-content {
-            padding: var(--spacing-sm) var(--spacing-md);
-            border-top: 1px solid var(--border);
-        }
-        
-        .help-list {
-            list-style: none;
-            font-size: 0.75rem;
-            color: var(--muted);
-            line-height: 1.5;
-        }
-        
-        .help-list li {
-            margin-bottom: var(--spacing-xs);
-            padding-left: var(--spacing-md);
-            position: relative;
-        }
-        
-        .help-list li::before {
-            content: '•';
-            position: absolute;
-            left: 0;
-            color: var(--accent);
-        }
-        
-        kbd {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-size: 0.7rem;
-            font-family: monospace;
-        }
-        
-        .input-error {
-            color: var(--bad);
-            font-size: 0.75rem;
-            margin-top: var(--spacing-xs);
-            padding: var(--spacing-xs);
-            background: rgba(255, 92, 92, 0.1);
-            border-radius: 4px;
-            border-left: 3px solid var(--bad);
-        }
-        
-        .input-error:not(.sr-only) {
-            display: block;
-        }
-        
         /* Mobile optimizations */
         @media (max-width: 768px) {
             .login-glass-card {
                 margin: var(--spacing-sm);
-            }
-            
-            .help-content {
-                font-size: 0.8125rem;
-            }
-            
-            .security-note {
-                font-size: 0.75rem;
             }
         }
         
@@ -415,10 +228,6 @@
             .login-glass-card {
                 border: 2px solid var(--text);
                 background: var(--bg);
-            }
-            
-            .security-note {
-                border: 1px solid var(--accent);
             }
         }
     </style>

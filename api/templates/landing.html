@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>Shobha Sarees - Professional Photo Processing</title>
-    <meta name="description" content="Transform your saree photos with professional processing. Upload, enhance, and organize your catalog with Shobha Sarees Photo Maker.">
+    <title>Shobha Sarees - Admin Portal</title>
+    <meta name="description" content="Shobha Sarees administrative portal and management tools">
     <link rel="stylesheet" href="/static/styles.css">
     <script defer src="/static/global.js"></script>
     
@@ -17,19 +17,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Shobha Sarees">
-    
-    <!-- Open Graph -->
-    <meta property="og:title" content="Shobha Sarees - Professional Photo Processing">
-    <meta property="og:description" content="Transform your saree photos with professional processing">
-    <meta property="og:type" content="website">
-    
-    <!-- Performance optimizations -->
-    <link rel="dns-prefetch" href="//fonts.googleapis.com">
 </head>
 <body class="theme">
-    <!-- Skip Navigation for Accessibility -->
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-
     <!-- Primary Navigation -->
     <nav class="navbar glass" role="navigation" aria-label="Primary navigation">
         <div class="nav-left">
@@ -98,18 +87,39 @@
             </div>
             <div class="sidebar-brand">
                 <h2 class="brand-name">Shobha Sarees</h2>
-                <p class="brand-subtitle">Photo Maker</p>
+                <p class="brand-subtitle">Admin Portal</p>
             </div>
         </div>
         
-        <nav class="sidebar-navigation" role="navigation" aria-label="Application sections">
-            <a href="/" class="nav-item" aria-current="page" aria-label="Home page">
-                <span class="nav-icon" aria-hidden="true">🏠</span>
-                <span class="nav-text">Home</span>
+        <nav class="sidebar-navigation" role="navigation" aria-label="Management tools">
+            <h3 style="font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; margin: 1rem 0 0.5rem 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.08);">Dashboard</h3>
+            
+            <a href="/" class="nav-item" aria-current="page">
+                <span class="nav-icon" aria-hidden="true">📊</span>
+                <span class="nav-text">Overview</span>
             </a>
-            <a href="/app" class="nav-item" aria-label="Photo maker application">
+            <a href="/analytics" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">📈</span>
+                <span class="nav-text">Analytics</span>
+            </a>
+
+            <h3 style="font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; margin: 1.5rem 0 0.5rem 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.08);">Tools</h3>
+            
+            <a href="/app" class="nav-item">
                 <span class="nav-icon" aria-hidden="true">📸</span>
-                <span class="nav-text">Photo Maker</span>
+                <span class="nav-text">Photo Studio</span>
+            </a>
+            <a href="/catalog" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">📚</span>
+                <span class="nav-text">Catalog Manager</span>
+            </a>
+            <a href="/upload" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">☁️</span>
+                <span class="nav-text">Upload Center</span>
+            </a>
+            <a href="/settings" class="nav-item">
+                <span class="nav-icon" aria-hidden="true">⚙️</span>
+                <span class="nav-text">Settings</span>
             </a>
         </nav>
         
@@ -134,9 +144,8 @@
     <main 
         id="main-content" 
         role="main" 
-        tabindex="-1" 
         class="landing-hero-rich"
-        aria-label="Shobha Sarees Photo Maker home page"
+        aria-label="Shobha Sarees admin portal"
     >
         <!-- Animated Background -->
         <div class="rich-gradient-bg" aria-hidden="true"></div>
@@ -155,107 +164,104 @@
             <!-- Page Header -->
             <header class="landing-header">
                 <h1 class="landing-title-rich">
-                    <span class="gradient-text">Transform Your</span><br>
-                    <span class="gradient-text">Saree Photos</span>
+                    <span class="gradient-text">Shobha Sarees</span><br>
+                    <span class="gradient-text">Management Portal</span>
                 </h1>
                 <p class="landing-subtitle-rich">
-                    Professional photo processing with automated background removal, 
-                    branding, and cloud storage. Perfect for catalog creation.
+                    Comprehensive administrative tools for business operations, 
+                    content management, and workflow automation.
                 </p>
             </header>
             
-            <!-- Feature Highlights -->
-            <section class="features-preview" aria-label="Key features">
+            <section class="features-preview" aria-label="Available tools">
                 <div class="features-grid">
                     <div class="feature-card glass">
-                        <div class="feature-icon" aria-hidden="true">🎭</div>
-                        <h3 class="feature-title">Smart Background Removal</h3>
-                        <p class="feature-desc">AI-powered background removal with manual fallback</p>
+                        <div class="feature-icon" aria-hidden="true">📸</div>
+                        <h3 class="feature-title">Photo Studio</h3>
+                        <p class="feature-desc">Professional photo processing with automated workflows</p>
                     </div>
                     
                     <div class="feature-card glass">
-                        <div class="feature-icon" aria-hidden="true">🏷️</div>
-                        <h3 class="feature-title">Auto Branding</h3>
-                        <p class="feature-desc">Automatic logo placement and professional formatting</p>
+                        <div class="feature-icon" aria-hidden="true">📚</div>
+                        <h3 class="feature-title">Catalog Management</h3>
+                        <p class="feature-desc">Organize and maintain product catalogs efficiently</p>
                     </div>
                     
                     <div class="feature-card glass">
                         <div class="feature-icon" aria-hidden="true">☁️</div>
                         <h3 class="feature-title">Cloud Storage</h3>
-                        <p class="feature-desc">Direct upload to Google Drive with organized folders</p>
+                        <p class="feature-desc">Centralized file management and backup solutions</p>
                     </div>
                 </div>
             </section>
             
-            <!-- Call to Action -->
             <div class="cta-section">
                 <a 
                     href="/app" 
                     class="cta-button glassmorphic-btn"
-                    aria-label="Start using the photo maker"
+                    aria-label="Access main tools"
                 >
                     <div class="btn-content">
                         <span class="btn-icon" aria-hidden="true">🚀</span>
-                        <span>Start Processing Photos</span>
+                        <span>Launch Tools</span>
                     </div>
                     <div class="btn-glow"></div>
                 </a>
                 
                 <p class="cta-subtext">
-                    Upload up to 10 images at once • Max 15MB total
+                    Access all management tools from the sidebar
                 </p>
             </div>
-            
-            <!-- Stats/Benefits -->
-            <section class="benefits-section" aria-label="Benefits">
+            <!-- 
+            <section class="benefits-section" aria-label="System capabilities">
                 <div class="benefits-grid">
                     <div class="benefit-item">
-                        <div class="benefit-number">10</div>
-                        <div class="benefit-label">Files per batch</div>
+                        <div class="benefit-number">∞</div>
+                        <div class="benefit-label">Storage capacity</div>
                     </div>
                     <div class="benefit-item">
-                        <div class="benefit-number">85%</div>
-                        <div class="benefit-label">Compression savings</div>
+                        <div class="benefit-number">24/7</div>
+                        <div class="benefit-label">System availability</div>
                     </div>
                     <div class="benefit-item">
-                        <div class="benefit-number">3s</div>
-                        <div class="benefit-label">Avg processing time</div>
+                        <div class="benefit-number">Auto</div>
+                        <div class="benefit-label">Backup & sync</div>
                     </div>
                     <div class="benefit-item">
-                        <div class="benefit-number">100%</div>
-                        <div class="benefit-label">Automated workflow</div>
+                        <div class="benefit-number">Secure</div>
+                        <div class="benefit-label">Data protection</div>
                     </div>
                 </div>
             </section>
         </div>
         
-        <!-- Quick Start Guide -->
-        <section class="quick-start glass" aria-label="How to use">
+        Upcoming Features Preview -->
+        <section class="quick-start glass" aria-label="System overview">
             <div class="quick-start-content">
-                <h2 class="quick-start-title">How it works</h2>
+                <h2 class="quick-start-title">System Features</h2>
                 <div class="steps-grid">
                     <div class="step-item">
-                        <div class="step-number">1</div>
-                        <h3 class="step-title">Select Catalog</h3>
-                        <p class="step-desc">Choose which catalog your photos belong to</p>
+                        <div class="step-number">📊</div>
+                        <h3 class="step-title">Analytics Dashboard</h3>
+                        <p class="step-desc">Real-time insights and performance metrics</p>
                     </div>
                     
                     <div class="step-item">
-                        <div class="step-number">2</div>
-                        <h3 class="step-title">Upload Images</h3>
-                        <p class="step-desc">Drop or select up to 10 saree photos</p>
+                        <div class="step-number">🔄</div>
+                        <h3 class="step-title">Automated Workflows</h3>
+                        <p class="step-desc">Streamlined processes for maximum efficiency</p>
                     </div>
                     
                     <div class="step-item">
-                        <div class="step-number">3</div>
-                        <h3 class="step-title">Add Design Numbers</h3>
-                        <p class="step-desc">Label each image with design numbers</p>
+                        <div class="step-number">🔐</div>
+                        <h3 class="step-title">Secure Access</h3>
+                        <p class="step-desc">Enterprise-grade security and user management</p>
                     </div>
                     
                     <div class="step-item">
-                        <div class="step-number">4</div>
-                        <h3 class="step-title">Process & Upload</h3>
-                        <p class="step-desc">Automated processing and cloud storage</p>
+                        <div class="step-number">⚡</div>
+                        <h3 class="step-title">High Performance</h3>
+                        <p class="step-desc">Optimized for speed and reliability</p>
                     </div>
                 </div>
             </div>
@@ -360,7 +366,7 @@
         }
         
         .benefit-number {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: 800;
             color: var(--accent);
             margin-bottom: var(--spacing-xs);
@@ -375,7 +381,7 @@
         .quick-start {
             margin: var(--spacing-xl) auto;
             padding: var(--spacing-xl);
-            max-width: 800px;
+            max-width: 900px;
             border-radius: 20px;
         }
         
@@ -411,8 +417,8 @@
         }
         
         .step-number {
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             background: linear-gradient(135deg, var(--accent), var(--accent-2));
             color: white;
             border-radius: 50%;
@@ -421,7 +427,7 @@
             justify-content: center;
             font-weight: 800;
             margin: 0 auto var(--spacing-sm);
-            font-size: 1.125rem;
+            font-size: 1.25rem;
         }
         
         .step-title {
@@ -461,10 +467,6 @@
             .cta-button {
                 font-size: 1rem;
                 padding: var(--spacing-md) var(--spacing-lg);
-            }
-            
-            .benefit-number {
-                font-size: 1.5rem;
             }
         }
         

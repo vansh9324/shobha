@@ -2,6 +2,7 @@ import io
 import json
 import os
 import secrets
+import sys
 from datetime import timedelta, datetime
 from dotenv import load_dotenv
 import traceback
@@ -10,7 +11,7 @@ import logging
 load_dotenv()
 
 from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -28,6 +29,19 @@ logger = logging.getLogger("shobha")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+# Also try loading .env files relative to this module for local dev
+try:
+    from pathlib import Path
+    for candidate in [
+        Path(BASE_DIR) / ".env",
+        Path(BASE_DIR).parent / ".env",
+        Path(BASE_DIR).parent.parent / ".env",
+    ]:
+        if candidate.exists():
+            load_dotenv(dotenv_path=str(candidate), override=False)
+except Exception:
+    pass
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "change-this")
@@ -71,12 +85,26 @@ app.add_middleware(
 # ---------------- GLOBAL SERVICES (LAZY INITIALIZED) ----------------
 _platemaker = None
 _drive_uploader = None
+_temp_downloads: dict[str, dict] = {}
+
+# Temp download storage limits
+TEMP_MAX_ITEMS = 100
+TEMP_TTL_SECONDS = 60 * 15  # 15 minutes
 
 def get_platemaker():
     global _platemaker
     if _platemaker is None:
         try:
-            from api.platemaker_module import PlateMaker
+            # Try multiple import strategies to support different run modes
+            try:
+                from shobha.api.platemaker_module import PlateMaker  # type: ignore
+            except Exception:
+                try:
+                    from .platemaker_module import PlateMaker  # type: ignore
+                except Exception:
+                    # Fallback to same-directory import
+                    sys.path.append(BASE_DIR)
+                    from platemaker_module import PlateMaker  # type: ignore
             _platemaker = PlateMaker()
             print("✅ PlateMaker initialized successfully")
         except Exception as e:
@@ -89,7 +117,15 @@ def get_drive_uploader():
     global _drive_uploader
     if _drive_uploader is None:
         try:
-            from api.google_drive_uploader import DriveUploader
+            # Try multiple import strategies to support different run modes
+            try:
+                from shobha.api.google_drive_uploader import DriveUploader  # type: ignore
+            except Exception:
+                try:
+                    from .google_drive_uploader import DriveUploader  # type: ignore
+                except Exception:
+                    sys.path.append(BASE_DIR)
+                    from google_drive_uploader import DriveUploader  # type: ignore
             _drive_uploader = DriveUploader()
             print("✅ DriveUploader initialized successfully")
         except Exception as e:
@@ -97,6 +133,24 @@ def get_drive_uploader():
             traceback.print_exc()
             _drive_uploader = False
     return _drive_uploader if _drive_uploader is not False else None
+
+def _cleanup_temp_downloads():
+    now = datetime.utcnow().timestamp()
+    # Remove expired
+    expired_keys = [k for k, v in _temp_downloads.items() if now - v.get("ts", 0) > TEMP_TTL_SECONDS]
+    for k in expired_keys:
+        _temp_downloads.pop(k, None)
+    # Trim oldest if over capacity
+    if len(_temp_downloads) > TEMP_MAX_ITEMS:
+        for k in sorted(_temp_downloads.keys(), key=lambda x: _temp_downloads[x].get("ts", 0))[: len(_temp_downloads) - TEMP_MAX_ITEMS]:
+            _temp_downloads.pop(k, None)
+
+def _store_temp_download(data: bytes, filename: str) -> str:
+    import uuid
+    token = uuid.uuid4().hex
+    _temp_downloads[token] = {"data": data, "filename": filename, "ts": datetime.utcnow().timestamp()}
+    _cleanup_temp_downloads()
+    return token
 
 # ---------------- DATA ----------------
 catalog_options = [
@@ -221,6 +275,21 @@ async def app_view(request: Request):
         }
     })
 
+@app.get("/favicon.ico")
+async def favicon():
+    # Serve existing brand logo as favicon to avoid template 404s
+    return RedirectResponse(url="/static/logo.png", status_code=307)
+
+@app.get("/download/{token}")
+async def download(token: str):
+    item = _temp_downloads.get(token)
+    if not item:
+        raise HTTPException(status_code=404, detail="File expired or not found")
+    # Optionally cleanup on access
+    return Response(content=item["data"], media_type="image/jpeg", headers={
+        "Content-Disposition": f"attachment; filename=\"{item['filename']}\""
+    })
+
 # ------------- API ENDPOINTS -------------
 @app.get("/debug")
 async def debug_info(request: Request):
@@ -278,28 +347,25 @@ async def upload_images(
     if not touch_session(request):
         raise HTTPException(status_code=401, detail="Session expired")
 
-    # Backend logging for uploads
+    # Quick guard for serverless platforms (e.g., Vercel) to avoid network errors
+    try:
+        content_length = int((request.headers.get("content-length") or "0").strip())
+    except ValueError:
+        content_length = 0
+    SAFE_TOTAL_LIMIT = MAX_TOTAL_SIZE + (2 * 1024 * 1024)  # allow ~2MB form overhead
+    if content_length and content_length > SAFE_TOTAL_LIMIT:
+        return JSONResponse({
+            "error": f"Payload too large ({content_length/1024/1024:.1f}MB). Max {MAX_TOTAL_SIZE/1024/1024:.0f}MB total. Please compress or split uploads."
+        }, status_code=413)
+
     logger.info(f"🔍 Received {len(files)} files")
-    for i, file in enumerate(files):
-        content = await file.read()
-        size_mb = len(content) / (1024 * 1024)
-        logger.info(f"🔍 File {i}: {file.filename} = {size_mb:.2f}MB")
-        # Reset file pointer for downstream processing
-        file.file.seek(0)
 
     # Mobile-specific validation
     if len(files) > 10:
         return JSONResponse({"error": "Maximum 10 files allowed"}, status_code=413)
     
     # Check individual file sizes (mobile limit)
-    for file in files:
-        if file.size and file.size > 4 * 1024 * 1024:  # 4MB per file
-            return JSONResponse({"error": f"File {file.filename} too large (max 4MB)"}, status_code=413)
-    
-    # Check total size (mobile bandwidth)
-    total_size = sum(file.size or 0 for file in files)
-    if total_size > 20 * 1024 * 1024:  # 20MB total
-        return JSONResponse({"error": "Total size too large (max 20MB)"}, status_code=413)
+    # Note: file.size may be missing on some servers; enforce size during processing loop
 
     # Get services
     platemaker = get_platemaker()
@@ -308,8 +374,7 @@ async def upload_images(
     if platemaker is None:
         return JSONResponse({"error": "Image processing service unavailable"}, status_code=503)
     
-    if drive_uploader is None:
-        return JSONResponse({"error": "Upload service unavailable"}, status_code=503)
+    drive_available = drive_uploader is not None
 
     # Parse mapping
     try:
@@ -321,10 +386,28 @@ async def upload_images(
         return JSONResponse({"error": f"Invalid design mapping: {str(e)}"}, status_code=400)
 
     results = []
+    total_bytes_seen = 0
     
     for idx, file in enumerate(files):
         try:
             img_bytes = await file.read()
+            file_bytes_len = len(img_bytes)
+            total_bytes_seen += file_bytes_len
+
+            # Enforce per-file and total size limits server-side
+            if file_bytes_len > MAX_FILE_SIZE:
+                results.append({
+                    "filename": file.filename,
+                    "status": "error",
+                    "error": f"File too large ({file_bytes_len/1024/1024:.1f}MB). Max 4MB",
+                })
+                continue
+
+            if total_bytes_seen > MAX_TOTAL_SIZE:
+                return JSONResponse({
+                    "error": f"Total size too large ({total_bytes_seen/1024/1024:.1f}MB). Max {MAX_TOTAL_SIZE/1024/1024:.0f}MB",
+                    "results": results
+                }, status_code=413)
             design_number = design_map.get(idx, "") or f"Design_{idx+1}"
             
             # Process image
@@ -349,20 +432,32 @@ async def upload_images(
             processed_img.save(img_out_bytes, format="JPEG", quality=95)
             img_out_bytes.seek(0)
 
-            try:
-                url = drive_uploader.upload_image(img_out_bytes, output_filename, catalog)
+            if drive_available:
+                try:
+                    url = drive_uploader.upload_image(img_out_bytes, output_filename, catalog)
+                    results.append({
+                        "filename": output_filename,
+                        "url": url,
+                        "status": "success",
+                        "design_number": design_number
+                    })
+                except Exception as e:
+                    results.append({
+                        "filename": output_filename,
+                        "status": "error",
+                        "error": f"Upload failed: {str(e)[:100]}",
+                        "design_number": design_number
+                    })
+            else:
+                # Fallback: in-memory download link valid for a short time
+                token = _store_temp_download(img_out_bytes.getvalue(), output_filename)
+                temp_url = str(request.url_for("download", token=token))
                 results.append({
                     "filename": output_filename,
-                    "url": url,
+                    "url": temp_url,
                     "status": "success",
-                    "design_number": design_number
-                })
-            except Exception as e:
-                results.append({
-                    "filename": output_filename,
-                    "status": "error",
-                    "error": f"Upload failed: {str(e)[:100]}",
-                    "design_number": design_number
+                    "design_number": design_number,
+                    "note": "Drive unavailable. Temporary download link valid for 15 minutes."
                 })
 
         except Exception as e:

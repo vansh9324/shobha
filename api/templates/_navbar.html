@@ -1,28 +1,22 @@
-<header class="navbar glass">
-  <div class="nav-left">
-    <button class="nav-hamburger" id="globalHamburger" aria-label="Toggle menu" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
-    {% if request and request.session and request.session.get('auth') %}
-      <a class="nav-brand" href="/">
-        <img id="navLogo" src="/static/logo.png" alt="Shobha Sarees" class="nav-logo">
-        <span class="nav-title">Shobha Sarees</span>
-      </a>
-    {% else %}
-      <div class="nav-brand">
-        <img id="navLogo" src="/static/logo.png" alt="Shobha Sarees" class="nav-logo">
-        <span class="nav-title">Shobha Sarees</span>
-      </div>
-    {% endif %}
-  </div>
-  
-  <div class="nav-right">
-    <div class="theme-switch" id="themeSwitchGlobal" role="switch" aria-label="Toggle theme" aria-checked="false" tabindex="0">
-      <div class="switch-track">
-        <div class="switch-thumb"></div>
-        <span class="switch-icon dark">🌙</span>
-        <span class="switch-icon light">☀️</span>
-      </div>
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="nav-left">
+        <button id="globalHamburger" class="nav-hamburger" aria-expanded="false" aria-controls="glassmorphicSidebar" aria-label="Toggle navigation menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <a href="/" class="nav-brand">
+            <img src="/static/logo.png" alt="Shobha Sarees" class="nav-logo" id="navLogo">
+            <span class="nav-title">Shobha Sarees</span>
+        </a>
     </div>
-  </div>
-</header>
+    <div class="nav-right">
+        <div class="theme-switch" role="switch" aria-checked="false" aria-label="Toggle theme" tabindex="0" id="themeSwitchGlobal">
+            <div class="switch-track">
+                <span class="switch-icon">🌙</span>
+                <div class="switch-thumb"></div>
+                <span class="switch-icon">☀️</span>
+            </div>
+        </div>
+    </div>
+</nav>
