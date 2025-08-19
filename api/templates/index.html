@@ -44,7 +44,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Shobha Sarees Photo Maker (DEBUG - No Compression)</h1>
+        <h1>Shobha Sarees Photo Maker</h1>
         
         <div class="form-group">
             <label for="catalog">Select Catalog:</label>
@@ -60,8 +60,8 @@
             <label>Upload Images:</label>
             <div id="dropzone" class="dropzone">
                 <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
-                <div>📁 Tap here to select RAW images (NO COMPRESSION)</div>
-                <small>Testing Step 1: Raw image upload</small>
+                <div>📁 Tap here to select images (Smart Compression)</div>
+                <small>Images will be compressed to max 4MB, 3000px, high quality</small>
             </div>
         </div>
 
@@ -157,7 +157,80 @@
                 });
             }
 
-            // STEP 1 MODIFICATION: NO COMPRESSION - Upload raw files
+            // SMART COMPRESSION
+            async compressImage(file) {
+                return new Promise((resolve) => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+
+                    img.onload = () => {
+                        let { width, height } = img;
+                        const originalSizeMB = file.size / (1024 * 1024);
+
+                        console.log(`Original: ${width}x${height}, ${originalSizeMB.toFixed(2)}MB`);
+
+                        // SMART SIZING - preserve more quality than before
+                        let maxDimension = 3000;  // Increased from 2500
+                        let quality = 0.92;       // Higher quality than 0.8
+
+                        // Adjust based on original size
+                        if (originalSizeMB > 10) {
+                            maxDimension = 2800;
+                            quality = 0.88;
+                        } else if (originalSizeMB > 6) {
+                            maxDimension = 2900;
+                            quality = 0.90;
+                        }
+
+                        // Scale down only if needed
+                        if (width > maxDimension || height > maxDimension) {
+                            const scale = Math.min(maxDimension / width, maxDimension / height);
+                            width = Math.round(width * scale);
+                            height = Math.round(height * scale);
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        // High quality rendering
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Compress with size checking
+                        canvas.toBlob((blob) => {
+                            const compressedSizeMB = blob.size / (1024 * 1024);
+                            console.log(`Compressed: ${width}x${height}, ${compressedSizeMB.toFixed(2)}MB`);
+
+                            // If still too big, try lower quality
+                            if (blob.size > 4 * 1024 * 1024) {
+                                console.log('Still too large, reducing quality...');
+                                canvas.toBlob((retryBlob) => {
+                                    const finalSizeMB = retryBlob.size / (1024 * 1024);
+                                    console.log(`Final: ${finalSizeMB.toFixed(2)}MB`);
+
+                                    const compressed = new File([retryBlob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+                                        type: 'image/jpeg',
+                                        lastModified: Date.now()
+                                    });
+                                    resolve(compressed);
+                                }, 'image/jpeg', 0.85);
+                            } else {
+                                const compressed = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now()
+                                });
+                                resolve(compressed);
+                            }
+                        }, 'image/jpeg', quality);
+                    };
+
+                    img.src = URL.createObjectURL(file);
+                });
+            }
+
+            // HANDLE FILES WITH COMPRESSION AND SIZE VALIDATION
             async handleFiles(files) {
                 const imageFiles = files.filter(f => f.type.startsWith('image/'));
                 
@@ -171,18 +244,26 @@
                     return;
                 }
 
-                // PUSH RAW FILES DIRECTLY - NO COMPRESSION
                 for (const file of imageFiles) {
+                    // Compress with size validation
+                    const compressed = await this.compressImage(file);
+                    const sizeMB = compressed.size / (1024 * 1024);
+
+                    if (sizeMB > 4) {
+                        this.showToast(`${file.name} still too large (${sizeMB.toFixed(1)}MB). Please use a smaller image.`, 'error');
+                        continue;
+                    }
+
                     const id = Date.now() + Math.random();
                     this.items.push({
                         id: id,
-                        file: file,  // RAW FILE - NO COMPRESSION
+                        file: compressed,
                         design: '',
-                        url: URL.createObjectURL(file)
+                        url: URL.createObjectURL(compressed)
                     });
                 }
 
-                this.showToast(`Added ${imageFiles.length} RAW images (${(imageFiles.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024).toFixed(1)}MB total)`, 'success');
+                this.showToast(`Added ${this.items.length} images`, 'success');
                 this.updatePreview();
             }
 
@@ -253,11 +334,11 @@
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(video, 0, 0);
 
-                canvas.toBlob((blob) => {
+                canvas.toBlob(async (blob) => {
                     const file = new File([blob], `camera-${Date.now()}.jpg`, { 
                         type: 'image/jpeg' 
                     });
-                    this.handleFiles([file]);
+                    await this.handleFiles([file]);
                     this.closeCamera();
                 }, 'image/jpeg', 0.9);
             }
@@ -302,12 +383,12 @@
                 }));
                 formData.append('mapping', JSON.stringify(mapping));
 
-                // Add RAW files to form data
+                // Add compressed files to form data
                 this.items.forEach(item => formData.append('files', item.file));
 
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout for raw files
+                    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
 
                     const response = await fetch('/upload', {
                         method: 'POST',
@@ -327,7 +408,7 @@
                     this.displayResults(data);
                     
                     const successCount = data.results?.filter(r => r.status === 'success').length || 0;
-                    this.showToast(`DEBUG RESULT: ${successCount} images processed (RAW input)`, 'success');
+                    this.showToast(`RESULT: ${successCount} images processed`, 'success');
 
                 } catch (error) {
                     this.hideProgress();
@@ -335,9 +416,9 @@
                     
                     let message = 'Upload failed';
                     if (error.name === 'AbortError') {
-                        message = 'Upload timeout - raw files too large';
+                        message = 'Upload timeout - files too large';
                     } else if (error.message.includes('fetch') || error.message.includes('Network')) {
-                        message = 'Network error - raw files may be too large';
+                        message = 'Network error - files may be too large';
                     } else {
                         message = `Upload failed: ${error.message}`;
                     }
@@ -361,7 +442,7 @@
                         return;
                     }
                     
-                    progress += Math.random() * 5; // Slower progress for raw files
+                    progress += Math.random() * 5;
                     if (progress > 90) progress = 90;
                     
                     this.progressBar.style.width = progress + '%';
@@ -377,7 +458,7 @@
             }
 
             displayResults(data) {
-                this.results.innerHTML = '<h3>DEBUG Results (Raw Input):</h3>';
+                this.results.innerHTML = '<h3>Results:</h3>';
                 
                 if (!data.results?.length) {
                     this.results.innerHTML += '<p>No results received</p>';
