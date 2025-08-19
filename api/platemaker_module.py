@@ -14,24 +14,13 @@ class PlateMaker:
         """Proportionally scaled dimensions for compressed 2500x2000 input"""
         
         # TARGET INPUT: 2500x2000 (5:4 ratio) compressed images
-        self.TARGET_IMG_W = 2500
-        self.TARGET_IMG_H = 2000
-        
-        # FIXED PADDING (maintains Sweet Sixteen proportions)
-        self.SIDE_PAD = 40
-        self.TOP_PAD = 40
-        self.BOTTOM_PAD = 40
-        self.BANNER_PAD_Y = 60
-        
-        # CALCULATED CANVAS (image + padding + banner space)
-        self.FRAME_W = self.TARGET_IMG_W
-        self.FRAME_H = self.TARGET_IMG_H
-        
-        # PROPORTIONALLY SCALED FONTS (based on canvas width vs original 5000px)
-        scale_factor = self.TARGET_IMG_W / 5000  # 0.5 scale
-        self.MAX_FONT_SIZE = int(180 * scale_factor)  # 90pt
-        self.MIN_FONT_SIZE = int(40 * scale_factor)   # 20pt
-        
+        self.FRAME_W, self.FRAME_H = 4000, 3200  # Larger than before
+        self.SIDE_PAD = 35
+        self.TOP_PAD = 35
+        self.BOTTOM_PAD = 35
+        self.BANNER_PAD_Y = 50
+        self.MAX_FONT_SIZE = 120
+        self.MIN_FONT_SIZE = 30
         self.TEXT_COLOR = (0, 0, 0)
         
         # Correct file paths
@@ -53,7 +42,7 @@ class PlateMaker:
         self.logo_available = os.path.exists(self.LOGO_PATH)
         self.api_available = bool(self.REMBG_API_KEY)
         
-        logger.info(f"✅ PlateMaker initialized for {self.TARGET_IMG_W}x{self.TARGET_IMG_H} input")
+        logger.info(f"✅ PlateMaker optimized for quality compression: {self.FRAME_W}x{self.FRAME_H}")
         logger.info(f"📏 Font range: {self.MIN_FONT_SIZE}-{self.MAX_FONT_SIZE}pt")
         logger.info(f"🔤 Font available: {self.font_available}")
         logger.info(f"🖼️ Logo available: {self.logo_available}")
