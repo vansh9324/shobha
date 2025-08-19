@@ -155,33 +155,32 @@
             }
 
             async handleFiles(files) {
-                const imageFiles = files.filter(f => f.type.startsWith('image/'));
-                
-                if (!imageFiles.length) {
-                    this.showToast('No valid images selected', 'error');
-                    return;
-                }
+            const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    
+            if (!imageFiles.length) {
+            this.showToast('No valid images selected', 'error');
+            return;
+            }
 
-                if (this.items.length + imageFiles.length > 10) {
-                    this.showToast('Maximum 10 images allowed', 'error');
-                    return;
-                }
+            if (this.items.length + imageFiles.length > 10) {
+            this.showToast('Maximum 10 images allowed', 'error');
+            return;
+            }
 
-                for (const file of imageFiles) {
-                    // Check file size and compress if needed
-                    let processedFile = file;
-                    if (file.size > 3 * 1024 * 1024) { // 3MB
-                        processedFile = await this.compressImage(file);
-                    }
+    // SKIP ALL COMPRESSION - use raw files
+    for (const file of imageFiles) {
+        const id = Date.now() + Math.random();
+        this.items.push({
+            id: id,
+            file: file,  // RAW FILE - NO COMPRESSION
+            design: '',
+            url: URL.createObjectURL(file)
+        });
+    }
 
-                    const id = Date.now() + Math.random();
-                    this.items.push({
-                        id: id,
-                        file: processedFile,
-                        design: '',
-                        url: URL.createObjectURL(processedFile)
-                    });
-                }
+    this.showToast(`Added ${imageFiles.length} RAW images (no compression)`, 'success');
+    this.updatePreview();
+}
 
                 this.showToast(`Added ${imageFiles.length} images`, 'success');
                 this.updatePreview();
