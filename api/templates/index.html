@@ -13,15 +13,18 @@
         select, input { padding: 16px; border: 1px solid #333; background: #2a2a2a; color: white; border-radius: 8px; width: 100%; font-size: 16px; }
         .dropzone { border: 2px dashed #4CAF50; padding: 30px; text-align: center; border-radius: 12px; cursor: pointer; margin: 15px 0; min-height: 120px; display: flex; align-items: center; justify-content: center; flex-direction: column; }
         .dropzone:hover { background: rgba(76, 175, 80, 0.1); }
+        .dropzone.drag { background: rgba(76, 175, 80, 0.2); border-color: #70f0c6; }
         .button { background: #4CAF50; color: white; padding: 16px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin: 8px; min-height: 48px; }
         .button:hover { background: #45a049; }
         .button.secondary { background: #2196F3; }
         .button.danger { background: #f44336; }
+        .button:disabled { background: #666; cursor: not-allowed; }
         .preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 15px 0; }
         .preview-item { background: #2a2a2a; border-radius: 8px; overflow: hidden; }
         .preview-item img { width: 100%; height: 120px; object-fit: cover; }
         .preview-item input { margin: 8px; width: calc(100% - 16px); padding: 8px; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; }
+        .modal.show { display: flex; }
         .modal-content { background: #2a2a2a; padding: 20px; border-radius: 12px; text-align: center; max-width: 95%; max-height: 90%; }
         video { width: 100%; max-width: 350px; border-radius: 8px; height: auto; }
         .progress { background: #333; height: 24px; border-radius: 12px; margin: 20px 0; }
@@ -41,7 +44,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Shobha Sarees Photo Maker</h1>
+        <h1>Shobha Sarees Photo Maker (DEBUG - No Compression)</h1>
         
         <div class="form-group">
             <label for="catalog">Select Catalog:</label>
@@ -57,8 +60,8 @@
             <label>Upload Images:</label>
             <div id="dropzone" class="dropzone">
                 <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
-                <div>📁 Tap here to select images</div>
-                <small>Max 10 images, 3MB each</small>
+                <div>📁 Tap here to select RAW images (NO COMPRESSION)</div>
+                <small>Testing Step 1: Raw image upload</small>
             </div>
         </div>
 
@@ -130,14 +133,14 @@
                 // Drag and drop
                 this.dropzone.addEventListener('dragover', (e) => {
                     e.preventDefault();
-                    this.dropzone.style.background = 'rgba(76, 175, 80, 0.2)';
+                    this.dropzone.classList.add('drag');
                 });
                 this.dropzone.addEventListener('dragleave', () => {
-                    this.dropzone.style.background = '';
+                    this.dropzone.classList.remove('drag');
                 });
                 this.dropzone.addEventListener('drop', (e) => {
                     e.preventDefault();
-                    this.dropzone.style.background = '';
+                    this.dropzone.classList.remove('drag');
                     this.handleFiles(Array.from(e.dataTransfer.files));
                 });
 
@@ -154,81 +157,34 @@
                 });
             }
 
+            // STEP 1 MODIFICATION: NO COMPRESSION - Upload raw files
             async handleFiles(files) {
-            const imageFiles = files.filter(f => f.type.startsWith('image/'));
-    
-            if (!imageFiles.length) {
-            this.showToast('No valid images selected', 'error');
-            return;
-            }
+                const imageFiles = files.filter(f => f.type.startsWith('image/'));
+                
+                if (!imageFiles.length) {
+                    this.showToast('No valid images selected', 'error');
+                    return;
+                }
 
-            if (this.items.length + imageFiles.length > 10) {
-            this.showToast('Maximum 10 images allowed', 'error');
-            return;
-            }
+                if (this.items.length + imageFiles.length > 10) {
+                    this.showToast('Maximum 10 images allowed', 'error');
+                    return;
+                }
 
-    // SKIP ALL COMPRESSION - use raw files
-    for (const file of imageFiles) {
-        const id = Date.now() + Math.random();
-        this.items.push({
-            id: id,
-            file: file,  // RAW FILE - NO COMPRESSION
-            design: '',
-            url: URL.createObjectURL(file)
-        });
-    }
+                // PUSH RAW FILES DIRECTLY - NO COMPRESSION
+                for (const file of imageFiles) {
+                    const id = Date.now() + Math.random();
+                    this.items.push({
+                        id: id,
+                        file: file,  // RAW FILE - NO COMPRESSION
+                        design: '',
+                        url: URL.createObjectURL(file)
+                    });
+                }
 
-    this.showToast(`Added ${imageFiles.length} RAW images (no compression)`, 'success');
-    this.updatePreview();
-}
-
-                this.showToast(`Added ${imageFiles.length} images`, 'success');
+                this.showToast(`Added ${imageFiles.length} RAW images (${(imageFiles.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024).toFixed(1)}MB total)`, 'success');
                 this.updatePreview();
             }
-
-            async compressImage(file) {
-            return new Promise((resolve) => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-        
-            img.onload = () => {
-            let { width, height } = img;
-            
-            // TARGET: 2500x2000 (5:4 ratio) for consistent proportions
-            const targetW = 2500;
-            const targetH = 2000;
-            
-            // Calculate scale to fit within target while maintaining aspect ratio
-            const scaleW = targetW / width;
-            const scaleH = targetH / height;
-            const scale = Math.min(scaleW, scaleH);
-            
-            // Apply scale
-            const newW = Math.round(width * scale);
-            const newH = Math.round(height * scale);
-            
-            canvas.width = newW;
-            canvas.height = newH;
-            
-            // High quality drawing
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(img, 0, 0, newW, newH);
-            
-            // Compress to target ~3.5MB (under 4MB limit)
-            canvas.toBlob((blob) => {
-                const compressed = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
-                    type: 'image/jpeg',
-                    lastModified: Date.now()
-                });
-                resolve(compressed);
-            }, 'image/jpeg', 0.9); // High quality JPEG
-        };
-        
-        img.src = URL.createObjectURL(file);
-    });
-}
 
             updatePreview() {
                 this.preview.innerHTML = '';
@@ -259,13 +215,8 @@
                 }
 
                 try {
-                    // Mobile-optimized camera constraints
                     this.stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'environment',
-                            width: { ideal: 1280, max: 1920 },
-                            height: { ideal: 720, max: 1080 }
-                        }
+                        video: { facingMode: 'environment' }
                     });
                     
                     this.cameraVideo.srcObject = this.stream;
@@ -275,7 +226,7 @@
                         this.cameraVideo.addEventListener('loadedmetadata', resolve, { once: true });
                     });
                     
-                    this.cameraModal.style.display = 'flex';
+                    this.cameraModal.classList.add('show');
                     this.showToast('Camera ready!', 'success');
                     
                 } catch (error) {
@@ -316,7 +267,7 @@
                     this.stream.getTracks().forEach(track => track.stop());
                     this.stream = null;
                 }
-                this.cameraModal.style.display = 'none';
+                this.cameraModal.classList.remove('show');
             }
 
             clearAll() {
@@ -351,12 +302,12 @@
                 }));
                 formData.append('mapping', JSON.stringify(mapping));
 
+                // Add RAW files to form data
                 this.items.forEach(item => formData.append('files', item.file));
 
                 try {
-                    // Mobile-optimized fetch with longer timeout
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds
+                    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout for raw files
 
                     const response = await fetch('/upload', {
                         method: 'POST',
@@ -376,7 +327,7 @@
                     this.displayResults(data);
                     
                     const successCount = data.results?.filter(r => r.status === 'success').length || 0;
-                    this.showToast(`${successCount} images processed successfully`, 'success');
+                    this.showToast(`DEBUG RESULT: ${successCount} images processed (RAW input)`, 'success');
 
                 } catch (error) {
                     this.hideProgress();
@@ -384,9 +335,9 @@
                     
                     let message = 'Upload failed';
                     if (error.name === 'AbortError') {
-                        message = 'Upload timeout - try fewer images';
+                        message = 'Upload timeout - raw files too large';
                     } else if (error.message.includes('fetch') || error.message.includes('Network')) {
-                        message = 'Network error - check connection';
+                        message = 'Network error - raw files may be too large';
                     } else {
                         message = `Upload failed: ${error.message}`;
                     }
@@ -410,12 +361,12 @@
                         return;
                     }
                     
-                    progress += Math.random() * 8;
+                    progress += Math.random() * 5; // Slower progress for raw files
                     if (progress > 90) progress = 90;
                     
                     this.progressBar.style.width = progress + '%';
                     this.progressText.textContent = Math.round(progress) + '%';
-                }, 400);
+                }, 800);
             }
 
             hideProgress() {
@@ -426,7 +377,7 @@
             }
 
             displayResults(data) {
-                this.results.innerHTML = '<h3>Results:</h3>';
+                this.results.innerHTML = '<h3>DEBUG Results (Raw Input):</h3>';
                 
                 if (!data.results?.length) {
                     this.results.innerHTML += '<p>No results received</p>';
@@ -443,6 +394,7 @@
                         </span><br>
                         ${result.url ? `<a href="${result.url}" target="_blank" style="color: #2196F3;">View in Drive</a>` : ''}
                         ${result.error ? `<br><small style="color: #f44336;">Error: ${result.error}</small>` : ''}
+                        ${result.design_number ? `<br><small style="color: #888;">Design: ${result.design_number}</small>` : ''}
                     `;
                     this.results.appendChild(div);
                 });
@@ -459,9 +411,8 @@
 
                 setTimeout(() => {
                     if (toast.parentNode) toast.parentNode.removeChild(toast);
-                }, 4000);
+                }, 5000);
                 
-                // Tap to dismiss
                 toast.addEventListener('click', () => {
                     if (toast.parentNode) toast.parentNode.removeChild(toast);
                 });
