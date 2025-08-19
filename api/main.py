@@ -5,6 +5,7 @@ import secrets
 from datetime import timedelta, datetime
 from dotenv import load_dotenv
 import traceback
+import logging
 
 load_dotenv()
 
@@ -15,6 +16,13 @@ from starlette.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
+
+# ---------------- LOGGING ----------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+logger = logging.getLogger("shobha")
 
 # ---------------- CONFIG ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -269,6 +277,15 @@ async def upload_images(
     # Check authentication
     if not touch_session(request):
         raise HTTPException(status_code=401, detail="Session expired")
+
+    # Backend logging for uploads
+    logger.info(f"🔍 Received {len(files)} files")
+    for i, file in enumerate(files):
+        content = await file.read()
+        size_mb = len(content) / (1024 * 1024)
+        logger.info(f"🔍 File {i}: {file.filename} = {size_mb:.2f}MB")
+        # Reset file pointer for downstream processing
+        file.file.seek(0)
 
     # Mobile-specific validation
     if len(files) > 10:
