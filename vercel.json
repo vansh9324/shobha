@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "routes": [
+    {"src": "/static/(.*)", "dest": "/static/$1"},
+    {"src": "/login", "dest": "/templates/login.html"},
+    {"src": "/app", "dest": "/templates/index.html"}
+  ]
+}
