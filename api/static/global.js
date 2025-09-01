@@ -4,6 +4,7 @@
  */
 
 // ========== GLOBAL CONFIGURATION ==========
+
 const GLOBAL_CONFIG = {
     theme: {
         storage_key: 'shobha_theme', // Changed from 'shobha_theme' to match
@@ -21,6 +22,7 @@ const GLOBAL_CONFIG = {
 };
 
 // ========== THEME MANAGEMENT ==========
+
 class ThemeManager {
     constructor() {
         this.currentTheme = this.getStoredTheme();
@@ -45,9 +47,9 @@ class ThemeManager {
 
     getStoredTheme() {
         try {
-            return localStorage.getItem(GLOBAL_CONFIG.theme.storage_key) || 
-                   this.getSystemTheme() || 
-                   GLOBAL_CONFIG.theme.default;
+            return localStorage.getItem(GLOBAL_CONFIG.theme.storage_key) ||
+                this.getSystemTheme() ||
+                GLOBAL_CONFIG.theme.default;
         } catch (e) {
             console.warn('LocalStorage unavailable, using default theme');
             return GLOBAL_CONFIG.theme.default;
@@ -87,13 +89,11 @@ class ThemeManager {
         if (window.showToast) {
             window.showToast(`Switched to ${newTheme} theme`, 'good');
         }
-        
         return newTheme;
     }
 
     bindThemeSwitches() {
         const switches = document.querySelectorAll('[role="switch"][aria-label*="theme"], .theme-switch');
-        
         switches.forEach(switchEl => {
             this.switches.push(switchEl);
             
@@ -117,6 +117,7 @@ class ThemeManager {
         this.switches.forEach(switchEl => {
             const isLight = theme === 'light';
             switchEl.setAttribute('aria-checked', isLight.toString());
+            
             // Update visual state
             if (isLight) {
                 switchEl.classList.add('light');
@@ -136,7 +137,7 @@ class ThemeManager {
                 logo.src = logoSrc;
             }
         });
-
+        
         // Update background logo
         const appBg = document.getElementById('appLogoBg');
         if (appBg) {
@@ -155,6 +156,7 @@ class ThemeManager {
 }
 
 // ========== SIDEBAR MANAGEMENT ==========
+
 class SidebarManager {
     constructor() {
         this.sidebar = null;
@@ -163,7 +165,6 @@ class SidebarManager {
         this.isOpen = false;
         this.touchStartX = 0;
         this.touchStartY = 0;
-        
         this.init();
     }
 
@@ -173,7 +174,7 @@ class SidebarManager {
             console.warn('Sidebar elements not found, skipping initialization');
             return;
         }
-    
+        
         this.bindEvents();
         this.setupSwipeGestures();
         console.log('✅ SidebarManager initialized');
@@ -218,23 +219,22 @@ class SidebarManager {
 
     setupSwipeGestures() {
         if (!('ontouchstart' in window)) return;
-
+        
         // Touch start
         document.addEventListener('touchstart', (e) => {
             this.touchStartX = e.touches[0].clientX;
-            this.touchStartY = e.touches.clientY;
+            this.touchStartY = e.touches[0].clientY;
         }, { passive: true });
-
+        
         // Touch move for swipe detection
         document.addEventListener('touchmove', (e) => {
             if (!this.touchStartX || !this.touchStartY) return;
-
-            const touchEndX = e.touches[0].clientX;
-            const touchEndY = e.touches.clientY;
             
+            const touchEndX = e.touches[0].clientX;
+            const touchEndY = e.touches[0].clientY;
             const diffX = this.touchStartX - touchEndX;
             const diffY = this.touchStartY - touchEndY;
-
+            
             // Only trigger on horizontal swipes
             if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
                 if (diffX > 0 && this.isOpen) {
@@ -244,10 +244,10 @@ class SidebarManager {
                     // Swipe right from left edge to open
                     this.open();
                 }
-                
-                this.touchStartX = 0;
-                this.touchStartY = 0;
             }
+            
+            this.touchStartX = 0;
+            this.touchStartY = 0;
         }, { passive: true });
     }
 
@@ -261,7 +261,7 @@ class SidebarManager {
 
     open() {
         if (this.isOpen) return;
-
+        
         this.sidebar.classList.add('active');
         this.overlay.classList.add('active');
         this.hamburger.classList.add('active');
@@ -285,7 +285,7 @@ class SidebarManager {
 
     close() {
         if (!this.isOpen) return;
-
+        
         this.sidebar.classList.remove('active');
         this.overlay.classList.remove('active');
         this.hamburger.classList.remove('active');
@@ -319,6 +319,7 @@ class SidebarManager {
 }
 
 // ========== TOAST NOTIFICATION SYSTEM ==========
+
 class ToastManager {
     constructor() {
         this.container = null;
@@ -334,7 +335,6 @@ class ToastManager {
 
     createContainer() {
         this.container = document.getElementById('toastHost');
-        
         if (!this.container) {
             this.container = document.createElement('div');
             this.container.id = 'toastHost';
@@ -357,7 +357,7 @@ class ToastManager {
                 'warning': 4000
             }[type] || 3000;
         }
-
+        
         // Create toast element
         const toast = this.createElement(message, type, id);
         
@@ -369,7 +369,7 @@ class ToastManager {
         requestAnimationFrame(() => {
             toast.classList.add('show');
         });
-
+        
         // Auto remove
         setTimeout(() => this.remove(id), duration);
         
@@ -393,8 +393,8 @@ class ToastManager {
         };
         
         toast.innerHTML = `
-            <span class="toast-icon" aria-hidden="true">${icons[type] || 'ℹ️'}</span>
-            <span class="toast-message">${this.escapeHtml(message)}</span>
+            ${icons[type] || 'ℹ️'}
+            ${this.escapeHtml(message)}
         `;
         
         return toast;
@@ -403,9 +403,8 @@ class ToastManager {
     remove(id) {
         const toast = this.toasts.get(id);
         if (!toast) return;
-
-        toast.classList.remove('show');
         
+        toast.classList.remove('show');
         setTimeout(() => {
             if (toast.parentNode) {
                 toast.parentNode.removeChild(toast);
@@ -424,13 +423,14 @@ class ToastManager {
             '<': '&lt;',
             '>': '&gt;',
             '"': '&quot;',
-            "'": '&#039;'
+            "'": '&#x27;'
         };
         return text.replace(/[&<>"']/g, (m) => map[m]);
     }
 }
 
 // ========== ACCESSIBILITY ENHANCEMENTS ==========
+
 class AccessibilityManager {
     constructor() {
         this.init();
@@ -441,7 +441,6 @@ class AccessibilityManager {
         this.setupSkipLinks();
         this.addKeyboardSupport();
         this.setupScreenReaderSupport();
-        
         console.log('✅ AccessibilityManager initialized');
     }
 
@@ -452,24 +451,22 @@ class AccessibilityManager {
                 document.body.classList.add('keyboard-navigation');
             }
         });
-
+        
         document.addEventListener('mousedown', () => {
             document.body.classList.remove('keyboard-navigation');
         });
-
+        
         // Focus trap for modals
         this.setupFocusTraps();
     }
 
     setupSkipLinks() {
         const skipLinks = document.querySelectorAll('.skip-link');
-        
         skipLinks.forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const targetId = link.getAttribute('href').substring(1);
                 const target = document.getElementById(targetId);
-                
                 if (target) {
                     target.focus();
                     target.scrollIntoView({ behavior: 'smooth' });
@@ -481,7 +478,6 @@ class AccessibilityManager {
     addKeyboardSupport() {
         // Add keyboard support to clickable elements without proper semantics
         const clickables = document.querySelectorAll('.dropzone-glass, .card, [role="button"]:not(button)');
-        
         clickables.forEach(el => {
             if (!el.hasAttribute('tabindex')) {
                 el.setAttribute('tabindex', '0');
@@ -513,7 +509,6 @@ class AccessibilityManager {
 
     setupFocusTraps() {
         const modals = document.querySelectorAll('[role="dialog"], .modal');
-        
         modals.forEach(modal => {
             modal.addEventListener('keydown', (e) => {
                 if (e.key === 'Tab') {
@@ -527,7 +522,6 @@ class AccessibilityManager {
         const focusableElements = container.querySelectorAll(
             'a[href], button, textarea, input[type="text"], input[type="radio"], input[type="checkbox"], select'
         );
-        
         const firstElement = focusableElements[0];
         const lastElement = focusableElements[focusableElements.length - 1];
         
@@ -542,6 +536,7 @@ class AccessibilityManager {
 }
 
 // ========== PERFORMANCE UTILITIES ==========
+
 class PerformanceManager {
     constructor() {
         this.metrics = {
@@ -556,7 +551,6 @@ class PerformanceManager {
         this.measurePageLoad();
         this.setupLazyLoading();
         this.setupIntersectionObserver();
-        
         console.log('✅ PerformanceManager initialized');
     }
 
@@ -566,7 +560,6 @@ class PerformanceManager {
                 const timing = performance.timing;
                 this.metrics.pageLoadTime = timing.loadEventEnd - timing.navigationStart;
                 this.metrics.domLoadTime = timing.domContentLoadedEventEnd - timing.navigationStart;
-                
                 console.log(`📊 Page load metrics:`, this.metrics);
             }
         });
@@ -588,7 +581,7 @@ class PerformanceManager {
                     }
                 });
             });
-
+            
             document.querySelectorAll('img[data-src]').forEach(img => {
                 imageObserver.observe(img);
             });
@@ -608,7 +601,7 @@ class PerformanceManager {
                 threshold: 0.1,
                 rootMargin: '0px 0px -50px 0px'
             });
-
+            
             document.querySelectorAll('.animate-on-scroll').forEach(el => {
                 animationObserver.observe(el);
             });
@@ -641,7 +634,73 @@ class PerformanceManager {
     }
 }
 
+// ========== AUTHENTICATION UTILITIES (NEW) ==========
+
+class AuthManager {
+    constructor() {
+        this.init();
+    }
+
+    init() {
+        this.setupAuthCheck();
+        console.log('✅ AuthManager initialized');
+    }
+
+    setupAuthCheck() {
+        // Check authentication status on protected pages
+        const protectedPages = ['/app', '/'];
+        const currentPath = window.location.pathname;
+        
+        if (protectedPages.includes(currentPath)) {
+            if (!this.isAuthenticated()) {
+                window.location.href = '/login';
+                return;
+            }
+        }
+        
+        // Setup logout functionality
+        this.setupLogout();
+    }
+
+    isAuthenticated() {
+        try {
+            const token = localStorage.getItem('jwt_token');
+            return !!token;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    setupLogout() {
+        const logoutBtns = document.querySelectorAll('.logout-btn-improved, [data-action="logout"]');
+        logoutBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.logout();
+            });
+        });
+    }
+
+    logout() {
+        try {
+            localStorage.removeItem('jwt_token');
+            sessionStorage.removeItem('jwt_token');
+        } catch (e) {
+            console.warn('Failed to clear tokens');
+        }
+        
+        if (window.showToast) {
+            window.showToast('Logged out successfully', 'good');
+        }
+        
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 1000);
+    }
+}
+
 // ========== INITIALIZATION ==========
+
 class GlobalApp {
     constructor() {
         this.themeManager = null;
@@ -649,7 +708,7 @@ class GlobalApp {
         this.toastManager = null;
         this.accessibilityManager = null;
         this.performanceManager = null;
-        
+        this.authManager = null; // NEW
         this.init();
     }
 
@@ -669,12 +728,12 @@ class GlobalApp {
             this.toastManager = new ToastManager();
             this.accessibilityManager = new AccessibilityManager();
             this.performanceManager = new PerformanceManager();
+            this.authManager = new AuthManager(); // NEW
             
             // Expose global functions
             this.exposeGlobalFunctions();
             
             console.log('✅ Global app initialized successfully');
-            
         } catch (error) {
             console.error('❌ Failed to initialize global app:', error);
         }
@@ -698,83 +757,15 @@ class GlobalApp {
         // Expose utility functions
         window.debounce = this.performanceManager.debounce;
         window.throttle = this.performanceManager.throttle;
+        
+        // NEW: Expose auth functions
+        window.isAuthenticated = () => this.authManager.isAuthenticated();
+        window.logout = () => this.authManager.logout();
     }
 }
-// Add this to the end of your existing global.js file
-
-function initializeSidebarToggle() {
-    const hamburger = document.getElementById('globalHamburger');
-    const sidebar = document.getElementById('glassmorphicSidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    
-    if (!hamburger || !sidebar || !overlay) {
-        console.warn('Sidebar elements not found');
-        return;
-    }
-
-    // Hamburger click handler
-    hamburger.addEventListener('click', () => {
-        toggleSidebar();
-    });
-
-    // Overlay click handler
-    overlay.addEventListener('click', () => {
-        closeSidebar();
-    });
-
-    // Escape key handler
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && sidebar.classList.contains('active')) {
-            closeSidebar();
-        }
-    });
-
-    function toggleSidebar() {
-        const isActive = sidebar.classList.contains('active');
-        
-        if (isActive) {
-            closeSidebar();
-        } else {
-            openSidebar();
-        }
-    }
-
-    function openSidebar() {
-        sidebar.classList.add('active');
-        overlay.classList.add('active');
-        hamburger.classList.add('active');
-        
-        // Update ARIA states
-        hamburger.setAttribute('aria-expanded', 'true');
-        sidebar.setAttribute('aria-hidden', 'false');
-        overlay.setAttribute('aria-hidden', 'false');
-        
-        // Prevent body scroll on mobile
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeSidebar() {
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-        hamburger.classList.remove('active');
-        
-        // Update ARIA states
-        hamburger.setAttribute('aria-expanded', 'false');
-        sidebar.setAttribute('aria-hidden', 'true');
-        overlay.setAttribute('aria-hidden', 'true');
-        
-        // Restore body scroll
-        document.body.style.overflow = '';
-    }
-}
-
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    initializeSidebarToggle();
-});
-
 
 // ========== AUTO-INITIALIZATION ==========
+
 const globalApp = new GlobalApp();
 
 // Export for module systems
@@ -785,6 +776,7 @@ if (typeof module !== 'undefined' && module.exports) {
         ToastManager,
         AccessibilityManager,
         PerformanceManager,
+        AuthManager,
         GlobalApp
     };
 }

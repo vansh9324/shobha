@@ -2,21 +2,16 @@
 import io
 import os
 import logging
+import requests
+import base64
 from PIL import Image, ImageDraw, ImageFont
-
-# Try to import rembg for local background removal
-try:
-    import rembg
-    REMBG_AVAILABLE = True
-except ImportError:
-    REMBG_AVAILABLE = False
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class PlateMaker:
     def __init__(self):
-        """Your exact original configuration with debug logging"""
+        """Your exact original configuration with multiple HuggingFace API options"""
         # ORIGINAL DIMENSIONS - exactly as your working version
         self.FRAME_W, self.FRAME_H = 5000, 4000
         # Match reference proportions: minimal side/bottom padding, compact heading gap
@@ -30,7 +25,6 @@ class PlateMaker:
         self.TEXT_COLOR = (0, 0, 0)
         
         # CORRECTED PATHS - with debugging
-        # Resolve font path relative to this module directory if available
         base_dir = os.path.dirname(os.path.abspath(__file__))
         candidate_font = os.path.join(base_dir, "..", "font", "NotoSerifDisplay-Italic-VariableFont_wdth,wght.ttf")
         candidate_font2 = os.path.join(base_dir, "..", "fonts", "NotoSerifDisplay-Italic-VariableFont_wdth,wght.ttf")
@@ -46,9 +40,8 @@ class PlateMaker:
         self.font_available = os.path.exists(self.FONT_PATH)
         self.logo_available = os.path.exists(self.LOGO_PATH)
         
-        logger.info(f"🔤 Font available: {self.font_available} at {self.FONT_PATH}")
+        logger.info(f"📤 Font available: {self.font_available} at {self.FONT_PATH}")
         logger.info(f"🖼️ Logo available: {self.logo_available} at {self.LOGO_PATH}")
-        logger.info(f"🎭 Local rembg available: {REMBG_AVAILABLE}")
         
         if not self.font_available:
             logger.warning(f"⚠️ Custom font not found, will use system fallback")
@@ -56,7 +49,7 @@ class PlateMaker:
             logger.warning(f"⚠️ Logo not found, will skip logo overlay")
 
     def process_image(self, image_file, catalog, design_number, status_callback=None):
-        """Your exact original processing method with debug logging"""
+        """Your exact original processing method with improved HuggingFace API integration"""
         
         if status_callback:
             status_callback("📤 Reading image...")
@@ -72,36 +65,32 @@ class PlateMaker:
         filename = image_file.name if hasattr(image_file, 'name') else 'uploaded_image'
         
         logger.info(f"🎯 Processing: {filename} with catalog: {name}")
-        logger.info(f"🔍 Input image size: {len(img_bytes)} bytes")
+        logger.info(f"📏 Input image size: {len(img_bytes)} bytes")
 
         if status_callback:
             status_callback("🎭 Removing background...")
 
-        # 1. Remove BG - use local rembg if available, otherwise skip
+        # 1. Remove BG using HuggingFace API with multiple endpoints
         try:
-            if REMBG_AVAILABLE:
-                fg = self.remove_bg_from_bytes(img_bytes)
-                logger.info("✅ Background removal successful")
-            else:
-                # Fallback: load original image
-                fg = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
-                logger.warning("⚠️ Using original image - no background removal")
+            fg = self.remove_bg_huggingface(img_bytes)
+            logger.info("✅ Background removal successful")
         except Exception as e:
             logger.error(f"❌ Background removal failed: {e}")
             fg = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+            logger.warning("⚠️ Using original image - no background removal")
 
-        logger.info(f"🔍 After BG removal: {fg.width}x{fg.height}")
+        logger.info(f"📏 After BG removal: {fg.width}x{fg.height}")
 
         # 2. Trim transparency
         fg = self.trim_transparent(fg)
-        logger.info(f"🔍 After trim: {fg.width}x{fg.height}")
+        logger.info(f"📏 After trim: {fg.width}x{fg.height}")
 
         if status_callback:
             status_callback("📏 Resizing image...")
 
         # 3. Downsize into fixed window (as a max), keep actual frame dynamic
         fg = self.downsize(fg, self.FRAME_W, self.FRAME_H)
-        logger.info(f"🔍 After resize: {fg.width}x{fg.height}")
+        logger.info(f"📏 After resize: {fg.width}x{fg.height}")
         frame_w, frame_h = fg.width, fg.height
 
         if status_callback:
@@ -131,14 +120,14 @@ class PlateMaker:
 
         # 5. Banner text with debugging
         banner_text = self.make_banner_text(name, design_number)
-        logger.info(f"🔍 Banner text: '{banner_text}'")
+        logger.info(f"📝 Banner text: '{banner_text}'")
         
         # Heading should span most of the saree width (≈ 92%)
         font = self.best_font(banner_text, int(fg.width * 0.92))
         tw, th = self.text_wh(banner_text, font)
         banner_h = th + 2 * self.BANNER_PAD_Y
         
-        logger.info(f"🔍 Text size: {tw}x{th}, banner height: {banner_h}")
+        logger.info(f"📝 Text size: {tw}x{th}, banner height: {banner_h}")
 
         if status_callback:
             status_callback("🎨 Composing final image...")
@@ -146,16 +135,16 @@ class PlateMaker:
         # 6. Create final canvas with dynamic width/height (matches saree width tightly)
         canvas_w = frame_w + 2 * self.SIDE_PAD
         canvas_h = self.TOP_PAD + banner_h + self.HEADING_GAP + frame_h + self.BOTTOM_PAD
-        cv = Image.new("RGB", (canvas_w, canvas_h), (251, 251, 251))
+        cv = Image.new("RGB", (canvas_w, canvas_h), "white")
         draw = ImageDraw.Draw(cv)
         
-        logger.info(f"🔍 Final canvas: {cv.width}x{cv.height}")
+        logger.info(f"📝 Final canvas: {cv.width}x{cv.height}")
 
         # 7. Draw banner text centred to saree width
         bx = self.SIDE_PAD + (frame_w - tw) // 2
         by = self.TOP_PAD + (banner_h - th) // 2
         
-        logger.info(f"🔍 Text position: ({bx}, {by})")
+        logger.info(f"📝 Text position: ({bx}, {by})")
         
         try:
             draw.text((bx, by), banner_text, font=font, fill=self.TEXT_COLOR)
@@ -167,7 +156,7 @@ class PlateMaker:
         sx = self.SIDE_PAD + (frame_w - fg.width) // 2
         sy = self.TOP_PAD + banner_h + self.HEADING_GAP
         
-        logger.info(f"🔍 Image position: ({sx}, {sy})")
+        logger.info(f"📝 Image position: ({sx}, {sy})")
         
         cv.paste(fg, (sx, sy), fg)
 
@@ -177,12 +166,104 @@ class PlateMaker:
         logger.info("✅ Processing completed successfully")
         return cv.convert("RGB")
 
-    def remove_bg_from_bytes(self, img_bytes):
-        """Your original remove_bg method"""
-        if not REMBG_AVAILABLE:
-            raise RuntimeError("rembg not available")
-        out_bytes = rembg.remove(img_bytes)
-        return Image.open(io.BytesIO(out_bytes)).convert("RGBA")
+    def remove_bg_huggingface(self, img_bytes):
+        """Multiple HuggingFace API endpoints for background removal"""
+        
+        # Get HuggingFace token from environment
+        hf_token = os.getenv('HUGGINGFACE_API_KEY') or os.getenv('HF_TOKEN')
+        headers = {}
+        if hf_token:
+            headers["Authorization"] = f"Bearer {hf_token}"
+        
+        # Try multiple API endpoints in order of preference
+        endpoints = [
+            # Option 1: HuggingFace Space API (most reliable)
+            {
+                "url": "https://briaai-bria-rmbg-1-4.hf.space/api/predict",
+                "method": "space_api"
+            },
+            # Option 2: Alternative Space
+            {
+                "url": "https://not-lain-background-removal.hf.space/api/predict", 
+                "method": "space_api"
+            },
+            # Option 3: Direct Inference API (if available)
+            {
+                "url": "https://api-inference.huggingface.co/models/briaai/RMBG-1.4",
+                "method": "inference_api"
+            }
+        ]
+        
+        for i, endpoint in enumerate(endpoints):
+            try:
+                logger.info(f"🔄 Trying endpoint {i+1}: {endpoint['method']}")
+                
+                if endpoint["method"] == "space_api":
+                    return self._try_space_api(endpoint["url"], img_bytes)
+                elif endpoint["method"] == "inference_api":
+                    return self._try_inference_api(endpoint["url"], img_bytes, headers)
+                    
+            except Exception as e:
+                logger.warning(f"⚠️ Endpoint {i+1} failed: {e}")
+                continue
+        
+        # All endpoints failed
+        raise RuntimeError("All HuggingFace endpoints failed")
+    
+    def _try_space_api(self, api_url, img_bytes):
+        """Try HuggingFace Space API with base64 encoding"""
+        # Convert image to base64
+        img_b64 = base64.b64encode(img_bytes).decode('utf-8')
+        data_url = f"data:image/png;base64,{img_b64}"
+        
+        payload = {"data": [data_url]}
+        headers = {"Content-Type": "application/json"}
+        
+        response = requests.post(api_url, json=payload, headers=headers, timeout=60)
+        
+        if response.status_code == 200:
+            result_data = response.json()
+            if result_data.get('data') and len(result_data['data']) > 0:
+                # Handle both base64 and direct URL responses
+                result = result_data['data'][0]
+                if isinstance(result, str):
+                    if result.startswith('data:image'):
+                        result_b64 = result.replace('data:image/png;base64,', '')
+                        result_bytes = base64.b64decode(result_b64)
+                    else:
+                        # It might be a URL, try to download
+                        img_response = requests.get(result)
+                        result_bytes = img_response.content
+                else:
+                    raise RuntimeError("Unexpected response format from Space API")
+                
+                result_image = Image.open(io.BytesIO(result_bytes)).convert("RGBA")
+                logger.info(f"✅ Space API success: {result_image.width}x{result_image.height}")
+                return result_image
+            else:
+                raise RuntimeError("No data in Space API response")
+        else:
+            raise RuntimeError(f"Space API error: {response.status_code} - {response.text}")
+    
+    def _try_inference_api(self, api_url, img_bytes, headers):
+        """Try HuggingFace Inference API with direct image data"""
+        response = requests.post(api_url, headers=headers, data=img_bytes, timeout=60)
+        
+        if response.status_code == 200:
+            result_image = Image.open(io.BytesIO(response.content)).convert("RGBA")
+            logger.info(f"✅ Inference API success: {result_image.width}x{result_image.height}")
+            return result_image
+        elif response.status_code == 503:
+            # Model loading, wait and retry
+            import time
+            time.sleep(20)
+            response = requests.post(api_url, headers=headers, data=img_bytes, timeout=60)
+            if response.status_code == 200:
+                result_image = Image.open(io.BytesIO(response.content)).convert("RGBA")
+                logger.info(f"✅ Inference API success on retry: {result_image.width}x{result_image.height}")
+                return result_image
+        
+        raise RuntimeError(f"Inference API error: {response.status_code} - {response.text}")
 
     def trim_transparent(self, img):
         """Your exact original method"""
@@ -201,12 +282,6 @@ class PlateMaker:
             Image.Resampling.LANCZOS
         )
 
-    def make_canvas(self, banner_h):
-        """Your exact original method"""
-        w = self.FRAME_W + 2 * self.SIDE_PAD
-        h = self.TOP_PAD + banner_h + self.FRAME_H + self.BOTTOM_PAD
-        return Image.new("RGB", (w, h), (251, 251, 251))
-
     def add_logo_overlay(self, canvas, fg_pos, fg_size, size_ratio=0.20, opacity=0.31, margin=100):
         """Your original logo overlay with debug logging"""
         if not self.logo_available:
@@ -216,7 +291,7 @@ class PlateMaker:
         try:
             # Load logo
             logo = Image.open(self.LOGO_PATH).convert("RGBA")
-            logger.info(f"🔍 Logo loaded: {logo.width}x{logo.height}")
+            logger.info(f"📝 Logo loaded: {logo.width}x{logo.height}")
             
             # Resize logo
             target_w = int(fg_size[0] * size_ratio)
@@ -225,10 +300,11 @@ class PlateMaker:
                 (target_w, int(logo.height * scale)),
                 Image.Resampling.LANCZOS
             )
-            logger.info(f"🔍 Logo resized: {logo.width}x{logo.height}")
+            logger.info(f"📝 Logo resized: {logo.width}x{logo.height}")
 
             # Apply opacity
-            alpha = logo.split().point(lambda p: int(p * opacity))
+            alpha = logo.getchannel('A')
+            alpha = alpha.point(lambda p: int(p * opacity))
             logo.putalpha(alpha)
             
             # Calculate position
@@ -237,7 +313,7 @@ class PlateMaker:
             lx = sx + fw - logo.width - margin
             ly = sy + fh - logo.height - margin
             
-            logger.info(f"🔍 Logo position: ({lx}, {ly})")
+            logger.info(f"📝 Logo position: ({lx}, {ly})")
             
             # Paste logo
             canvas.paste(logo, (lx, ly), logo)
@@ -284,14 +360,19 @@ class PlateMaker:
         return ImageFont.load_default()
 
     def text_wh(self, txt, font):
-        """Your exact original method with error handling"""
+        """FIXED: Your text measurement method with proper error handling"""
         try:
             bbox = font.getbbox(txt)
-            return bbox[2] - bbox[0], bbox[3] - bbox[1]
+            # Ensure we return integers, not tuples
+            width = bbox[2] - bbox
+            height = bbox[13] - bbox[14]
+            return int(width), int(height)
         except Exception as e:
             logger.warning(f"⚠️ Text measurement failed: {e}")
-            # Fallback estimation
-            return len(txt) * 12, 20
+            # Better fallback estimation based on font size
+            estimated_width = len(txt) * int(font.size * 0.6)
+            estimated_height = int(font.size * 1.2)
+            return estimated_width, estimated_height
 
     def best_font(self, txt, max_w):
         """Your exact original auto-sizing font method"""
