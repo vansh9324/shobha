@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <script>
+        window.API_BASE_URL = 'https://shobha-backend.onrender.com';
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Shobha Sarees</title>
+    
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" href="/static/logo.png">
+    
+    <!-- NEW: Add backend configuration -->
+    <script>
+        window.API_BASE_URL = 'https://shobha-backend.onrender.com';
+        
+        // NEW: Check authentication on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('jwt_token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+        });
+    </script>
+</head>
+<body>
+    <!-- Skip Navigation -->
+    <a href="#main" class="skip-link">Skip to main content</a>
+    
+    <!-- Navigation -->
+    {% include "navbar.html" %}
+    
+    <!-- Sidebar -->
+    {% include "sidebar_menu.html" %}
+    
+    <!-- Sidebar Overlay -->
+    <div id="sidebarOverlay" class="sidebar-overlay" aria-hidden="true"></div>
+    
+    <!-- Main App Container -->
+    <div class="app-container-glassmorphic">
+        <!-- Background Logo -->
+        <div id="appLogoBg" class="app-logo-bg"></div>
+        
+        <!-- Photo Maker Overlay -->
+        <div class="photo-maker-overlay">
+            <!-- Header -->
+            <header class="app-header-glass">
+                <h1 class="app-title">Professional Photo Processing</h1>
+                <p class="app-subtitle">Transform your saree catalog images with intelligent background removal and smart sizing</p>
+            </header>
+            
+            <!-- Main Content -->
+            <main id="main" class="photo-maker-form">
+                <!-- Form Row -->
+                <div class="form-row-glass">
+                    <!-- Controls -->
+                    <div class="field-glass">
+                        <!-- Catalog Selection -->
+                        <div class="field-glass">
+                            <label for="catalog-select" class="label-glass">
+                                ☀️ Select Catalog:
+                            </label>
+                            <div class="select-wrap-premium">
+                                <select id="catalog-select" class="select-glass" required>
+                                    <option value="">Choose a catalog...</option>
+                                    {% if catalogs %}
+                                    <select id="catalog-select" class="select-glass" required>
+                                        <option value="">Choose a catalog...</option>
+                                        <option value="Blueberry">Blueberry</option>
+                                        <option value="Lavanya">Lavanya</option>
+                                        <option value="Soundarya">Soundarya</option>
+                                        <option value="Malai Crape">Malai Crape</option>
+                                        <option value="Sweet Sixteen">Sweet Sixteen</option>
+                                        <option value="Heritage">Heritage</option>
+                                        <option value="Shakuntala">Shakuntala</option>
+                                    </select>
+                                    
+                                        <option value="{{ catalog }}">{{ catalog }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                                <svg class="select-arrow-glass" viewBox="0 0 24 24">
+                                    <path d="M7 10l5 5 5-5z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        
+                        <!-- File Upload -->
+                        <div class="field-glass">
+                            <label for="fileInput" class="label-glass">
+                                📁 Upload Images:
+                            </label>
+                            <div id="dropzone" class="dropzone-glass" role="button" tabindex="0" 
+                                 aria-label="Upload images by clicking or dragging files here">
+                                <input type="file" id="fileInput" multiple accept="image/*" aria-hidden="true">
+                                <div class="dropzone-content">
+                                    <svg class="dz-icon-glass" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                                    </svg>
+                                    <div class="upload-title">📁 Tap here to select images (Smart Compression)</div>
+                                    <div class="upload-subtitle">Images will be compressed to max 4MB, 3000px, high quality</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="action-buttons-glass">
+                            <button type="button" id="openCameraBtn" class="btn-glass ghost">
+                                <span class="btn-content">
+                                    <span class="btn-icon">📷</span>
+                                    <span>Open Camera</span>
+                                </span>
+                            </button>
+                            
+                            <button type="button" id="clearAllBtn" class="btn-glass ghost">
+                                <span class="btn-content">
+                                    <span class="btn-icon">🗑️</span>
+                                    <span>Clear All</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Preview Viewport -->
+                    <div class="field-glass">
+                        <div id="previewViewport" class="viewport-glass">
+                            <div id="previewGrid" class="vgrid"></div>
+                            <div id="previewSpacer"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Submit Actions -->
+                <div class="actions-glass">
+                    <form id="uploadForm">
+                        <button type="submit" id="processBtn" class="glassmorphic-btn">
+                            <span class="btn-content">
+                                <span class="btn-icon">⚡</span>
+                                <span>Process Images</span>
+                            </span>
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Progress Container -->
+                <div id="progressContainer" class="progress-container" style="display: none;">
+                    <div class="progress-header">
+                        <span class="progress-title">Processing Images...</span>
+                        <span id="progressPercentage" class="progress-percentage">0%</span>
+                    </div>
+                    <div class="progress-bar-premium">
+                        <div id="progressFill" class="progress-fill-premium"></div>
+                    </div>
+                    <div id="progressStatus" class="progress-status">Preparing upload...</div>
+                </div>
+                
+                <!-- Results Panel -->
+                <div id="resultsPanel" class="results-panel-glass" style="display: none;">
+                    <h3 class="panel-title-glass">Processing Results</h3>
+                    <div id="resultsGrid" class="results-grid-glass"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Camera Modal -->
+    <div id="cameraModal" class="modal">
+        <div class="modal-card">
+            <div class="camera-wrap">
+                <h3>Camera</h3>
+                <video id="cameraVideo" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: 8px;"></video>
+                <canvas id="cameraCanvas" style="display: none;"></canvas>
+                
+                <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+                    <button id="captureBtn" class="btn-glass primary">
+                        <span class="btn-content">
+                            <span class="btn-icon">📸</span>
+                            <span>Capture</span>
+                        </span>
+                    </button>
+                    
+                    <button id="closeCameraBtn" class="btn-glass ghost">
+                        <span class="btn-content">
+                            <span class="btn-icon">❌</span>
+                            <span>Close</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+    
+    <!-- NEW: Service status check -->
+    <script>
+        // Check backend health on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch(`${window.API_BASE_URL}/api/v1/health`);
+                if (!response.ok) {
+                    console.warn('Backend health check failed');
+                }
+            } catch (error) {
+                console.warn('Backend not reachable:', error);
+                if (window.showToast) {
+                    window.showToast('Backend service may be starting up...', 'info');
+                }
+            }
+        });
+    </script>
+    
+    <!-- Scripts -->
+    <script src="/static/global.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>

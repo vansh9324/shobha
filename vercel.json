@@ -1,0 +1,17 @@
+{
+    "routes": [
+      {
+        "src": "/login",
+        "dest": "/login.html"
+      },
+      {
+        "src": "/app",
+        "dest": "/app.html"
+      },
+      {
+        "src": "/static/(.*)",
+        "dest": "/static/$1"
+      }
+    ]
+  }
+  

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <script>
+        window.API_BASE_URL = 'https://shobha-backend.onrender.com';
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Shobha Sarees</title>
+    
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" href="/static/logo.png">
+    
+    <!-- NEW: Add backend configuration -->
+    <script>
+        window.API_BASE_URL = 'https://shobha-backend.onrender.com';
+    </script>
+</head>
+<body class="login-page">
+    <!-- Skip Navigation -->
+    <a href="#main" class="skip-link">Skip to main content</a>
+    
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/" class="nav-brand">
+                <img id="navLogo" src="/static/logo.png" alt="Shobha Sarees" class="nav-logo">
+                <span class="nav-title">Shobha Sarees</span>
+            </a>
+        </div>
+        
+        <div class="nav-right">
+            <!-- Theme Switch -->
+            <div 
+                id="themeSwitchGlobal" 
+                class="theme-switch" 
+                role="switch" 
+                aria-checked="false" 
+                aria-label="Toggle light/dark theme"
+                tabindex="0"
+            >
+                <div class="switch-track">
+                    <span class="switch-icon">🌙</span>
+                    <div class="switch-thumb"></div>
+                    <span class="switch-icon">☀️</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Login Container -->
+    <main id="main" class="login-container">
+        <div class="login-card-glass">
+            <!-- Header -->
+            <div class="login-header">
+                <img id="loginLogo" src="/static/logo.png" alt="Shobha Sarees" class="login-logo">
+                <h1 class="login-title">Welcome Back</h1>
+                <p class="login-subtitle">Sign in to access your photo processing dashboard</p>
+            </div>
+            
+            <!-- Login Form - UPDATED for JWT backend -->
+            <form id="loginForm" class="login-form">
+                <!-- Username Field -->
+                <div class="field-glass">
+                    <label for="username" class="label-glass">Username</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username"
+                        class="input-glass" 
+                        placeholder="Enter your username"
+                        required
+                        autocomplete="username"
+                        autofocus
+                    >
+                </div>
+                
+                <!-- Password Field -->
+                <div class="field-glass">
+                    <label for="password" class="label-glass">Password</label>
+                    <div class="password-field">
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password"
+                            class="input-glass" 
+                            placeholder="Enter your password"
+                            required
+                            autocomplete="current-password"
+                        >
+                        <button 
+                            type="button" 
+                            id="passwordToggle" 
+                            class="password-toggle"
+                            aria-label="Show password"
+                            tabindex="0"
+                        >
+                            <span id="passwordIcon">👁️</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Submit Button -->
+                <button type="submit" class="btn-login-glass">
+                    <span class="btn-content">
+                        <span class="btn-icon">🔐</span>
+                        <span class="btn-text">Sign In</span>
+                    </span>
+                </button>
+            </form>
+            
+            <!-- Footer -->
+            <div class="login-footer">
+                <p class="login-footer-text">
+                    Secure access to professional photo processing tools
+                </p>
+            </div>
+        </div>
+        
+        <!-- Alternative Theme Switch for Mobile -->
+        <div class="login-theme-switch">
+            <div 
+                id="themeSwitchLogin" 
+                class="theme-switch" 
+                role="switch" 
+                aria-checked="false" 
+                aria-label="Toggle light/dark theme"
+                tabindex="0"
+            >
+                <div class="switch-track">
+                    <span class="switch-icon">🌙</span>
+                    <div class="switch-thumb"></div>
+                    <span class="switch-icon">☀️</span>
+                </div>
+            </div>
+            <span class="theme-switch-label">Toggle Theme</span>
+        </div>
+    </main>
+    
+    <!-- Toast Container -->
+    <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+    
+    <!-- Scripts -->
+    <script src="/static/login.js"></script>
+</body>
+</html>
