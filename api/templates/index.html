@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
+    <script>
+        window.API_BASE_URL = 'https://shobha-backend.onrender.com';
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Shobha Sarees</title>
     
-    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
-    <link rel="icon" href="{{ url_for('static', path='logo.png') }}">
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" href="/static/logo.png">
     
     <!-- NEW: Add backend configuration -->
     <script>
@@ -63,7 +66,17 @@
                                 <select id="catalog-select" class="select-glass" required>
                                     <option value="">Choose a catalog...</option>
                                     {% if catalogs %}
-                                        {% for catalog in catalogs %}
+                                    <select id="catalog-select" class="select-glass" required>
+                                        <option value="">Choose a catalog...</option>
+                                        <option value="Blueberry">Blueberry</option>
+                                        <option value="Lavanya">Lavanya</option>
+                                        <option value="Soundarya">Soundarya</option>
+                                        <option value="Malai Crape">Malai Crape</option>
+                                        <option value="Sweet Sixteen">Sweet Sixteen</option>
+                                        <option value="Heritage">Heritage</option>
+                                        <option value="Shakuntala">Shakuntala</option>
+                                    </select>
+                                    
                                         <option value="{{ catalog }}">{{ catalog }}</option>
                                         {% endfor %}
                                     {% endif %}
@@ -201,7 +214,7 @@
     </script>
     
     <!-- Scripts -->
-    <script src="{{ url_for('static', path='global.js') }}"></script>
-    <script src="{{ url_for('static', path='app.js') }}"></script>
+    <script src="/static/global.js"></script>
+    <script src="/static/app.js"></script>
 </body>
 </html>
